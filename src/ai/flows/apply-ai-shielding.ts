@@ -1,3 +1,4 @@
+
 // src/ai/flows/apply-ai-shielding.ts
 'use server';
 
@@ -55,12 +56,8 @@ const applyAiShieldingFlow = ai.defineFlow(
   async input => {
     // TODO: Integrate with Fawkes, Glaze, LowKey, or similar tool
     // to apply the AI-resistance perturbation.
-    // For now, just return the original image.
-
+    // For now, this just passes through the model.
     const {output} = await applyAiShieldingPrompt(input);
-
-    return {
-      protectedPhotoDataUri: input.photoDataUri,
-    };
+    return output!;
   }
 );

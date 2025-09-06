@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Embeds an invisible cryptographic watermark into an image.
@@ -24,7 +25,7 @@ const EmbedInvisibleWatermarkOutputSchema = z.object({
   watermarkedPhotoDataUri: z
     .string()
     .describe(
-      "The watermarked photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "The watermarked photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'.'"
     ),
 });
 export type EmbedInvisibleWatermarkOutput = z.infer<typeof EmbedInvisibleWatermarkOutputSchema>;
