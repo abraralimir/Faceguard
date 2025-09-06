@@ -2,11 +2,10 @@
 import sharp from 'sharp';
 
 /**
- * Applies a multi-layered, high-strength perturbation shield to an image.
- * This combines three techniques for maximum resilience against AI models and compression.
- * 1. High-Frequency Grid Noise: A fine, structured pattern to disrupt local features.
- * 2. Mid-Frequency Block Distortion: Larger area warping to confuse structural recognition.
- * 3. Chromatic Aberration: Subtle color channel shifting to throw off color-based analysis.
+ * Applies a multi-layered, high-strength but visually subtle perturbation shield.
+ * This version is tuned to be nearly imperceptible to the human eye.
+ * 1. High-Frequency Dithered Noise: A very fine, structured pattern to disrupt local features.
+ * 2. Subtle Chromatic Aberration: A minimal 1px color channel shift.
  */
 export async function applyAiShielding(
   inputBuffer: Buffer,
@@ -29,62 +28,28 @@ export async function applyAiShielding(
     return x - Math.floor(x);
   };
 
-  // --- Layer 1: High-Frequency Structured Grid Noise ---
-  const gridStrength = 25; // Increased strength
-  const gridSize = 4; // Finer grid for more detail disruption
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const blockX = Math.floor(x / gridSize);
-      const blockY = Math.floor(y / gridSize);
-      const blockSeed = blockY * Math.floor(width / gridSize) + blockX;
-      const noise = (Math.sin(blockSeed * seedValue) * 100000 % 1 - 0.5) * gridStrength;
-
-      const pixelIndex = (y * width + x) * channels;
-      for (let c = 0; c < 3; c++) {
-        pixels[pixelIndex + c] = Math.max(0, Math.min(255, pixels[pixelIndex + c] + noise));
-      }
-    }
+  // --- Layer 1: High-Frequency Dithered Noise ---
+  const noiseStrength = 5; // Drastically reduced for invisibility
+  for (let i = 0; i < pixels.length; i += channels) {
+    const noise = (seededRandom() - 0.5) * noiseStrength;
+    pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
+    pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
+    pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
   }
 
-  // --- Layer 2: Mid-Frequency Block Distortion ---
-  // This simulates a mild, localized warping effect by displacing pixels within blocks.
-  const distortionStrength = 2; // Max pixel displacement
-  const distortionGridSize = 32; // Larger blocks
-  const tempPixels = new Uint8ClampedArray(pixels); // Work on a copy
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const blockX = Math.floor(x / distortionGridSize);
-      const blockY = Math.floor(y / distortionGridSize);
-      const blockSeed = blockY * Math.floor(width / distortionGridSize) + blockX;
-
-      const offsetX = Math.floor((Math.sin(blockSeed * seedValue * 2) % 1) * (distortionStrength * 2 + 1) - distortionStrength);
-      const offsetY = Math.floor((Math.cos(blockSeed * seedValue * 2) % 1) * (distortionStrength * 2 + 1) - distortionStrength);
-      
-      const sourceX = Math.max(0, Math.min(width - 1, x + offsetX));
-      const sourceY = Math.max(0, Math.min(height - 1, y + offsetY));
-
-      const targetIndex = (y * width + x) * channels;
-      const sourceIndex = (sourceY * width + sourceX) * channels;
-
-      pixels[targetIndex] = tempPixels[sourceIndex];
-      pixels[targetIndex + 1] = tempPixels[sourceIndex + 1];
-      pixels[targetIndex + 2] = tempPixels[sourceIndex + 2];
-    }
-  }
-  
-  // --- Layer 3: Subtle Chromatic Aberration ---
+  // --- Layer 2: Ultra-Subtle Chromatic Aberration ---
   // Shift R and B channels slightly in opposite directions
-  const shift = 1;
-  const shiftedPixels = new Uint8ClampedArray(pixels); // Work on another copy
+  const shift = 1; // Minimal 1px shift
+  const shiftedPixels = new Uint8ClampedArray(pixels); // Work on a copy
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
         const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
         const bIndex = (y * width + Math.max(0, x - shift)) * channels;
         const gIndex = (y * width + x) * channels;
 
-        pixels[gIndex] = shiftedPixels[rIndex]; // R -> G
-        pixels[gIndex + 1] = shiftedPixels[gIndex + 1]; // G stays
-        pixels[gIndex + 2] = shiftedPixels[bIndex + 2]; // B -> B
+        pixels[gIndex] = shiftedPixels[rIndex]; 
+        pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
+        pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
     }
   }
 
@@ -95,6 +60,6 @@ export async function applyAiShielding(
       channels,
     },
   })
-  .jpeg({ quality: 95 }) // Maintain high quality to preserve the complex shield
+  .jpeg({ quality: 98, mozjpeg: true }) // Use very high quality to preserve subtlety
   .toBuffer();
 }

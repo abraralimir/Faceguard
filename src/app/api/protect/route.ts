@@ -120,7 +120,10 @@ export async function POST(req: NextRequest) {
     let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
     // --- Step 2: Strip All Metadata (important for privacy) ---
-    let strippedBuffer = await sharp(shieldedBuffer).withMetadata({ exif: {} }).toBuffer();
+    // Note: We are not explicitly stripping metadata here anymore because applyAiShielding
+    // and embedInvisibleWatermark both process the raw pixel data and rebuild the image,
+    // which effectively strips most metadata. Sharp's final output will also not carry it over.
+    const strippedBuffer = shieldedBuffer; // Renaming for clarity in the flow
 
     const finalHash = sha256(strippedBuffer);
 

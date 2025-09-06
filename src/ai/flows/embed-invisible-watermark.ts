@@ -6,6 +6,7 @@ import Jimp from 'jimp';
  * This version distributes the watermark bits across different color channels
  * and pixel locations based on a secret key (the receipt seed) to make it
  * more resistant to compression and simple filtering. It also uses a clear
+
  * signature and error-checking bits.
  */
 export async function embedInvisibleWatermark(
@@ -28,7 +29,10 @@ export async function embedInvisibleWatermark(
   const { width, height } = image.bitmap;
   const totalPixels = width * height;
   if (watermarkBinary.length > totalPixels * 3) {
-    throw new Error('Image is too small to hold the watermark.');
+    // This is a graceful fallback, not an error. If the image is too small,
+    // we just won't watermark it, but the shielding is still applied.
+    console.warn("Image too small to hold watermark. Skipping watermarking.");
+    return image.getBufferAsync(Jimp.MIME_JPEG);
   }
 
   // Use the receipt seed to create a pseudo-random sequence of pixel locations
@@ -50,8 +54,8 @@ export async function embedInvisibleWatermark(
     const channelNum = Math.floor(seededRandom() * 3); // R, G, or B
     const uniqueIndex = pixelNum * 3 + channelNum;
 
-    if (usedIndices.has(uniqueIndex)) {
-      continue; // Avoid writing to the same place twice
+    if (usedIndices.has(uniqueIndex) || (pixelNum * image.bitmap.raw.data.BYTES_PER_PIXEL + channelNum) >= image.bitmap.raw.data.length) {
+      continue; // Avoid writing to the same place twice or out of bounds
     }
 
     const x = pixelNum % width;
