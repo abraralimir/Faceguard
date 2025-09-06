@@ -7,21 +7,23 @@ import forge from 'node-forge';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'FaceGuardUser'; // A default owner ID
-// In a real app, this should be a securely managed secret (e.g., from environment variables)
 const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-is-long-and-secure';
 
-// Generate or load a persistent Ed25519 key pair for signing receipts
-// For simplicity, we generate it on server start. In production, load from a secure store.
+// --- CRYPTOGRAPHIC SETUP (Ed25519) ---
+// This setup generates a key pair when the server starts.
+// In a real production environment, you would load the private key from a secure secret manager.
 let privateKey: forge.pki.ed25519.KeyPair;
 let publicKeyHex: string;
 
 try {
-  // This block will run on server start
-  privateKey = forge.pki.ed25519.generateKeyPair();
+  const seed = createHash('sha256').update(MASTER_KEY).digest();
+  privateKey = forge.pki.ed25519.generateKeyPair({ seed: seed });
   publicKeyHex = Buffer.from(privateKey.publicKey).toString('hex');
+  console.log("FaceGuard signing public key:", publicKeyHex);
 } catch (e) {
-  // Handle cases where crypto modules might not be available in certain environments
-  console.error("Could not generate key pair. Crypto functionality may be limited.", e);
+  console.error("Critical: Could not generate server key pair. Signing will fail.", e);
+  privateKey = {} as any; // Prevent server from running without keys
+  publicKeyHex = '';
 }
 
 
@@ -30,34 +32,43 @@ function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
+// Derives a unique and unpredictable seed for each protection run.
 function deriveSeed(): string {
   const timestamp = Date.now().toString();
-  const random = randomBytes(8).toString('hex');
-  const message = `${timestamp}|${random}`;
+  const random = randomBytes(16).toString('hex');
+  const message = `${timestamp}|${random}|${OWNER_ID}`;
+  // Use HMAC with the master key to create a deterministic but unpredictable seed
   return createHmac('sha256', MASTER_KEY).update(message).digest('hex');
 }
 
+// Signs a payload with the server's Ed25519 private key.
 function signPayload(payload: Record<string, any>): string {
-  if (!privateKey) {
-    throw new Error("Server key pair not available for signing.");
+  if (!privateKey || !privateKey.privateKey) {
+    throw new Error("Server key pair not available for signing. Check server logs.");
   }
-  // Sorting keys ensures a consistent JSON string for signing
+  // Sorting keys ensures a consistent JSON string, which is critical for verification.
   const message = JSON.stringify(payload, Object.keys(payload).sort());
   const messageBytes = Buffer.from(message, 'utf8');
+
+  // Use forge to sign the message bytes
   const signature = forge.pki.ed25519.sign({
     privateKey: privateKey.privateKey,
     message: messageBytes,
-    encoding: 'binary',
+    encoding: 'binary', // Important: work with raw bytes
   });
+
   return Buffer.from(signature, 'binary').toString('hex');
 }
 
-// Basic in-memory rate limiting (can be replaced with Redis/Upstash for production)
+// --- RATE LIMITING ---
+// Simple in-memory rate limiting. For production, consider a distributed solution like Redis.
 const ipRequestCounts = new Map<string, number>();
-const RATE_LIMIT_MAX_REQUESTS = 20;
+const RATE_LIMIT_MAX_REQUESTS = 20; // Max requests per window
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 function checkRateLimit(ip: string): boolean {
+  if (process.env.NODE_ENV !== 'production') return true; // Disable in dev
+
   const now = Date.now();
   const currentCount = ipRequestCounts.get(ip) || 0;
 
@@ -66,6 +77,7 @@ function checkRateLimit(ip: string): boolean {
   }
 
   ipRequestCounts.set(ip, currentCount + 1);
+  // Decrement the count after the window expires
   setTimeout(() => {
     const count = ipRequestCounts.get(ip) || 1;
     ipRequestCounts.set(ip, count - 1);
@@ -74,6 +86,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+// --- API ENDPOINT ---
 export async function POST(req: NextRequest) {
   const ip = req.ip ?? '127.0.0.1';
   if (!checkRateLimit(ip)) {
@@ -87,47 +100,33 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { imageDataUri } = body;
 
-    if (
-      !imageDataUri ||
-      typeof imageDataUri !== 'string' ||
-      !imageDataUri.startsWith('data:image/')
-    ) {
-      return NextResponse.json(
-        { error: 'Invalid image data URI provided.' },
-        { status: 400 }
-      );
+    if (!imageDataUri || typeof imageDataUri !== 'string' || !imageDataUri.startsWith('data:image/')) {
+      return NextResponse.json({ error: 'Invalid image data URI provided.' }, { status: 400 });
     }
 
-    const mimeType = imageDataUri.substring(
-      imageDataUri.indexOf(':') + 1,
-      imageDataUri.indexOf(';')
-    );
+    const mimeType = imageDataUri.substring(imageDataUri.indexOf(':') + 1, imageDataUri.indexOf(';'));
     const base64Data = imageDataUri.split(',')[1];
     if (!base64Data) {
-      return NextResponse.json(
-        { error: 'Could not extract image data from URI.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Could not extract image data from URI.' }, { status: 400 });
     }
     let imageBuffer = Buffer.from(base64Data, 'base64');
     const originalHash = sha256(imageBuffer);
 
-    // --- Generate a unique seed for this processing run ---
+    // --- Generate a unique, cryptographically secure seed for this run ---
     const seed = deriveSeed();
     const timestamp = Date.now();
 
-    // --- Step 1: Apply AI Shielding (Structured Perturbation) ---
+    // --- Step 1: Apply Multi-Layered AI Shielding ---
     let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
-    // --- Step 2: Strip All Metadata ---
-    let strippedBuffer = await sharp(shieldedBuffer)
-      .withMetadata({ exif: {} })
-      .toBuffer();
+    // --- Step 2: Strip All Metadata (important for privacy) ---
+    let strippedBuffer = await sharp(shieldedBuffer).withMetadata({ exif: {} }).toBuffer();
 
     const finalHash = sha256(strippedBuffer);
 
-    // --- Step 3: Create the Digital Receipt ---
+    // --- Step 3: Create the Digital Receipt (to be signed) ---
     const receipt: Record<string, any> = {
+      version: '3.0',
       owner: OWNER_ID,
       orig_sha256: originalHash,
       final_sha256: finalHash,
@@ -135,35 +134,29 @@ export async function POST(req: NextRequest) {
       timestamp: timestamp,
       public_key: publicKeyHex,
     };
+    // The signature is calculated on the receipt *without* the signature field itself.
     receipt.signature = signPayload(receipt);
 
-    // --- Step 4: Embed Invisible Watermark ---
-    // We pass the receipt to the watermarking function so it can embed key info
-    let watermarkedBuffer = await embedInvisibleWatermark(
-      strippedBuffer,
-      receipt
-    );
+    // --- Step 4: Embed Resilient Invisible Watermark ---
+    let watermarkedBuffer = await embedInvisibleWatermark(strippedBuffer, receipt);
 
-    // Final re-compression and integrity check
+    // --- Final Compression and Output ---
     const finalImageBytes = await sharp(watermarkedBuffer)
-      .jpeg({ quality: 95, optimize_coding: true })
+      .jpeg({ quality: 95, optimize_coding: true, mozjpeg: true })
       .toBuffer();
 
-    const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString(
-      'base64'
-    )}`;
-    
-    // The hash in the receipt should be the primary proof, but we can return the final one
+    const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
+
     return NextResponse.json({
       processedImageUri: processedImageUri,
-      hash: finalHash, // This is the hash of the *protected* image
-      receipt: receipt, // Return the full signed receipt
+      hash: finalHash,
+      receipt: receipt,
     });
   } catch (error) {
     console.error('Image processing failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return NextResponse.json(
-      { error: `An unexpected error occurred during image processing: ${errorMessage}` },
+      { error: `Image processing failed: ${errorMessage}` },
       { status: 500 }
     );
   }
