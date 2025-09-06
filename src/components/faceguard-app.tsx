@@ -101,22 +101,32 @@ export function FaceGuardApp() {
     if (!processedImageUri || !file) return;
 
     try {
-      // Fetch the data URI, convert to blob
       const response = await fetch(processedImageUri);
       const blob = await response.blob();
       
       const sharedFile = new File([blob], `protected_${fileName}`, { type: blob.type });
+      
+      const shareData = {
+        files: [sharedFile],
+        title: 'My Protected Image',
+        text: 'This image was protected by FaceGuard.',
+        url: 'https://faceguard-woad.vercel.app/'
+      };
 
-      if (navigator.canShare && navigator.canShare({ files: [sharedFile] })) {
-        await navigator.share({
-          files: [sharedFile],
-          title: 'My Protected Image',
-          text: 'This image was protected by FaceGuard.',
-        });
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
         toast({
           title: "Image Shared!",
         });
-      } else {
+      } else if (navigator.canShare && navigator.canShare({ files: [sharedFile] })) {
+        // Fallback for browsers that can share files but not the full data object
+        await navigator.share({
+            files: [sharedFile],
+            title: 'My Protected Image',
+            text: `This image was protected by FaceGuard. Protect your digital identity: https://faceguard-woad.vercel.app/`
+        });
+      }
+      else {
         toast({
           variant: "destructive",
           title: "Sharing Not Supported",
@@ -125,11 +135,14 @@ export function FaceGuardApp() {
       }
     } catch (err) {
       console.error("Share failed:", err);
-      toast({
-        variant: "destructive",
-        title: "Share Failed",
-        description: "Could not share the image.",
-      });
+      // Avoid showing an error if the user cancels the share dialog
+      if ((err as Error).name !== 'AbortError') {
+        toast({
+          variant: "destructive",
+          title: "Share Failed",
+          description: "Could not share the image.",
+        });
+      }
     }
   };
   

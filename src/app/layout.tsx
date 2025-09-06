@@ -8,11 +8,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'FaceGuard: Protect Your Digital Identity',
     description: 'Shield your photos from AI misuse.',
-    url: 'https://your-faceguard-url.com', // Replace with your actual URL
+    url: 'https://faceguard-woad.vercel.app/',
     siteName: 'FaceGuard',
     images: [
       {
-        url: 'https://your-faceguard-url.com/og-image.png', // Replace with an actual OG image URL
+        url: 'https://faceguard-woad.vercel.app/og-image.png',
         width: 1200,
         height: 630,
       },
@@ -24,8 +24,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'FaceGuard: Protect Your Digital Identity',
     description: 'Shield your photos from AI misuse.',
-    // creator: '@your-twitter-handle', // Replace with your twitter handle
-    images: ['https://your-faceguard-url.com/og-image.png'], // Replace
+    images: ['https://faceguard-woad.vercel.app/og-image.png'],
   },
 };
 
