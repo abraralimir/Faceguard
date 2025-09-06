@@ -6,7 +6,6 @@ import Jimp from 'jimp';
  * This version distributes the watermark bits across different color channels
  * and pixel locations based on a secret key (the receipt seed) to make it
  * more resistant to compression and simple filtering. It also uses a clear
-
  * signature and error-checking bits.
  */
 export async function embedInvisibleWatermark(
@@ -14,9 +13,10 @@ export async function embedInvisibleWatermark(
   receipt: Record<string, any>
 ): Promise<Buffer> {
   const image = await Jimp.read(inputBuffer);
-  const signature = 'FGv3'; // FaceGuard version 3
+  const signature = 'FG-WARN'; // FaceGuard Warning Signal
+  const warning = 'FACEGUARD_DO_NOT_EDIT_OR_MANIPULATE';
   const payload = `${receipt.seed}::${receipt.final_sha256.substring(0, 16)}`;
-  const watermarkText = `${signature}::${payload}`;
+  const watermarkText = `${signature}::${warning}::${payload}`;
 
   let watermarkBinary = '';
   for (let i = 0; i < watermarkText.length; i++) {
