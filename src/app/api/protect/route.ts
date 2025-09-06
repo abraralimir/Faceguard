@@ -12,8 +12,18 @@ const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-
 
 // Generate or load a persistent Ed25519 key pair for signing receipts
 // For simplicity, we generate it on server start. In production, load from a secure store.
-const privateKey = forge.pki.ed25519.generateKeyPair();
-const publicKeyHex = Buffer.from(privateKey.publicKey).toString('hex');
+let privateKey: forge.pki.ed25519.KeyPair;
+let publicKeyHex: string;
+
+try {
+  // This block will run on server start
+  privateKey = forge.pki.ed25519.generateKeyPair();
+  publicKeyHex = Buffer.from(privateKey.publicKey).toString('hex');
+} catch (e) {
+  // Handle cases where crypto modules might not be available in certain environments
+  console.error("Could not generate key pair. Crypto functionality may be limited.", e);
+}
+
 
 // --- UTILITY FUNCTIONS ---
 function sha256(data: Buffer): string {
@@ -28,9 +38,12 @@ function deriveSeed(): string {
 }
 
 function signPayload(payload: Record<string, any>): string {
+  if (!privateKey) {
+    throw new Error("Server key pair not available for signing.");
+  }
   // Sorting keys ensures a consistent JSON string for signing
   const message = JSON.stringify(payload, Object.keys(payload).sort());
-  const messageBytes = Buffer.from(message);
+  const messageBytes = Buffer.from(message, 'utf8');
   const signature = forge.pki.ed25519.sign({
     privateKey: privateKey.privateKey,
     message: messageBytes,
@@ -103,7 +116,7 @@ export async function POST(req: NextRequest) {
     const seed = deriveSeed();
     const timestamp = Date.now();
 
-    // --- Step 1: Apply AI Shielding (DCT Perturbation) ---
+    // --- Step 1: Apply AI Shielding (Structured Perturbation) ---
     let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
     // --- Step 2: Strip All Metadata ---
@@ -148,8 +161,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Image processing failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return NextResponse.json(
-      { error: 'An unexpected error occurred during image processing.' },
+      { error: `An unexpected error occurred during image processing: ${errorMessage}` },
       { status: 500 }
     );
   }
