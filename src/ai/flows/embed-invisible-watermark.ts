@@ -64,7 +64,7 @@ export async function embedInvisibleWatermark(
     const channelIdx = pixelIdx + channelNum;
     
     const bit = parseInt(watermarkBinary[bitIndex], 2);
-    image.bitmap.data[channelIdx] = (image.bitmap.data[channelIdx] & 0xFE) | bit;
+    image.bitmap.raw.data[channelIdx] = (image.bitmap.raw.data[channelIdx] & 0xFE) | bit;
 
     usedIndices.add(uniqueIndex);
     bitIndex++;
