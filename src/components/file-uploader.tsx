@@ -75,20 +75,20 @@ export function FileUploader({ onFileChange }: FileUploaderProps) {
       onDrop={handleDrop}
       onClick={() => document.getElementById('file-upload')?.click()}
       className={cn(
-        "flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-        "border-border hover:border-primary hover:bg-accent/50",
-        isDragging ? "border-primary bg-accent/50" : ""
+        "flex flex-col items-center justify-center w-full h-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+        "border-border/50 hover:border-primary hover:bg-primary/10",
+        isDragging ? "border-primary bg-primary/10" : ""
       )}
       role="button"
       aria-label="File uploader"
     >
       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center pointer-events-none">
-        <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-        <p className="mb-2 text-sm font-semibold text-foreground">
-          <span className="text-primary">Click to upload</span> or drag and drop
+        <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
+        <p className="mb-2 text-lg font-semibold text-foreground">
+          <span className="text-primary">Click to upload</span> or drag and drop your image
         </p>
         <p className="text-xs text-muted-foreground">
-          PNG or JPG (max {MAX_SIZE_MB}MB)
+          PNG or JPG (Max {MAX_SIZE_MB}MB)
         </p>
       </div>
       <input

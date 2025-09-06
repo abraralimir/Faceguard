@@ -3,8 +3,30 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'FaceGuard Online',
-  description: 'Protect your images from AI editing and deepfakes.',
+  title: 'FaceGuard: Protect Your Digital Identity',
+  description: 'FaceGuard provides state-of-the-art protection for your images. Apply an invisible, AI-resistant shield and watermark to prevent unauthorized editing, deepfakes, and misuse on social media.',
+  openGraph: {
+    title: 'FaceGuard: Protect Your Digital Identity',
+    description: 'Shield your photos from AI misuse.',
+    url: 'https://your-faceguard-url.com', // Replace with your actual URL
+    siteName: 'FaceGuard',
+    images: [
+      {
+        url: 'https://your-faceguard-url.com/og-image.png', // Replace with an actual OG image URL
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FaceGuard: Protect Your Digital Identity',
+    description: 'Shield your photos from AI misuse.',
+    // creator: '@your-twitter-handle', // Replace with your twitter handle
+    images: ['https://your-faceguard-url.com/og-image.png'], // Replace
+  },
 };
 
 export default function RootLayout({
@@ -13,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -27,6 +49,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
+        <div className="background-gradient" />
         {children}
         <Toaster />
       </body>

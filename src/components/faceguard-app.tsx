@@ -4,20 +4,19 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw } from "lucide-react";
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 
 export function FaceGuardApp() {
   const [file, setFile] = useState<File | null>(null);
   const [appState, setAppState] = useState<AppState>("idle");
-  const [progress, setProgress] = useState(0);
   const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
   const [imageHash, setImageHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>('image.jpg');
 
   const { toast } = useToast();
 
@@ -39,7 +38,6 @@ export function FaceGuardApp() {
   const resetState = useCallback(() => {
     setFile(null);
     setAppState("idle");
-    setProgress(0);
     setProcessedImageUri(null);
     setImageHash(null);
     setError(null);
@@ -49,6 +47,7 @@ export function FaceGuardApp() {
     resetState();
     if (selectedFile) {
       setFile(selectedFile);
+      setFileName(selectedFile.name);
       setAppState("file-loaded");
     } else {
       setAppState("idle");
@@ -59,18 +58,7 @@ export function FaceGuardApp() {
     if (!file) return;
 
     setAppState("processing");
-    setProgress(0);
     setError(null);
-
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(progressInterval);
-          return prev;
-        }
-        return prev + 5;
-      });
-    }, 200);
 
     try {
       const reader = new FileReader();
@@ -84,8 +72,6 @@ export function FaceGuardApp() {
           body: JSON.stringify({ imageDataUri }),
         });
 
-        clearInterval(progressInterval);
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to process image.');
@@ -94,14 +80,12 @@ export function FaceGuardApp() {
         const data = await response.json();
         setProcessedImageUri(data.processedImageUri);
         setImageHash(data.hash);
-        setProgress(100);
         setAppState("success");
       };
       reader.onerror = () => {
         throw new Error("Failed to read file.");
       }
     } catch (e: any) {
-      clearInterval(progressInterval);
       const errorMessage = e.message || "An unknown error occurred.";
       setError(errorMessage);
       setAppState("error");
@@ -109,6 +93,42 @@ export function FaceGuardApp() {
         variant: "destructive",
         title: "Processing Failed",
         description: errorMessage,
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!processedImageUri || !file) return;
+
+    try {
+      // Fetch the data URI, convert to blob
+      const response = await fetch(processedImageUri);
+      const blob = await response.blob();
+      
+      const sharedFile = new File([blob], `protected_${fileName}`, { type: blob.type });
+
+      if (navigator.canShare && navigator.canShare({ files: [sharedFile] })) {
+        await navigator.share({
+          files: [sharedFile],
+          title: 'My Protected Image',
+          text: 'This image was protected by FaceGuard.',
+        });
+        toast({
+          title: "Image Shared!",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Sharing Not Supported",
+          description: "Your browser does not support sharing files directly. Please download the image to share it.",
+        });
+      }
+    } catch (err) {
+      console.error("Share failed:", err);
+      toast({
+        variant: "destructive",
+        title: "Share Failed",
+        description: "Could not share the image.",
       });
     }
   };
@@ -124,46 +144,56 @@ export function FaceGuardApp() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mt-8 shadow-lg bg-card">
-      <CardContent className="p-6">
+    <Card className="w-full max-w-2xl mt-8 shadow-2xl bg-card/80 backdrop-blur-sm border-white/10">
+      <CardContent className="p-6 min-h-[350px] flex items-center justify-center">
         {appState === "idle" && <FileUploader onFileChange={handleFileChange} />}
         
         {appState === "file-loaded" && filePreviewUrl && (
-          <div className="flex flex-col items-center gap-4">
-            <Image src={filePreviewUrl} alt="Image preview" width={400} height={300} className="rounded-lg object-contain max-h-60 w-auto" data-ai-hint="people photo"/>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <Image src={filePreviewUrl} alt="Image preview" width={400} height={300} className="rounded-lg object-contain max-h-60 w-auto shadow-lg" data-ai-hint="people photo"/>
             <p className="text-sm text-muted-foreground">{file?.name}</p>
             <div className="flex gap-4">
               <Button variant="outline" onClick={resetState}>Clear</Button>
-              <Button onClick={handleProcessImage}>Process Image</Button>
+              <Button onClick={handleProcessImage} className="bg-primary hover:bg-primary/90 text-primary-foreground">Protect Image</Button>
             </div>
           </div>
         )}
 
         {appState === "processing" && (
           <div className="flex flex-col items-center gap-4 text-center p-8">
-            <p className="text-lg font-medium">Protecting your image...</p>
-            <p className="text-sm text-muted-foreground">Applying AI-shielding, watermarking, and hashing. This may take a moment.</p>
-            <Progress value={progress} className="w-full mt-2" />
+            <div className="relative w-24 h-24">
+              <ShieldCheck className="w-24 h-24 text-primary/30" />
+              <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
+            </div>
+            <p className="text-lg font-medium mt-4">Protecting your identity...</p>
+            <p className="text-sm text-muted-foreground">Applying shield, watermarking, and signing receipt.</p>
           </div>
         )}
 
         {appState === "success" && processedImageUri && imageHash && (
           <div className="flex flex-col items-center gap-6 text-center">
-            <ShieldCheck className="w-16 h-16 text-success" />
+            <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
             <h2 className="text-2xl font-bold">Your Image is Protected!</h2>
             <div className="flex flex-wrap justify-center gap-4">
-              <a href={processedImageUri} download={`protected_${file?.name || 'image'}`}>
+              <a href={processedImageUri} download={`protected_${fileName}`}>
                 <Button>
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download />
                   Download
                 </Button>
               </a>
-              <Button variant="outline" onClick={resetState}>Protect Another</Button>
+              <Button onClick={handleShare} variant="secondary">
+                <Share2 />
+                Share
+              </Button>
+              <Button variant="outline" onClick={resetState}>
+                <RefreshCw />
+                Protect Another
+              </Button>
             </div>
             
-            <Card className="w-full bg-background mt-4">
+            <Card className="w-full bg-background/50 mt-4 border-white/10">
               <CardHeader>
-                <CardTitle className="text-lg">Proof of Originality</CardTitle>
+                <CardTitle className="text-lg">Proof of Protection</CardTitle>
                 <CardDescription>SHA-256 hash of your protected image.</CardDescription>
               </CardHeader>
               <CardContent>

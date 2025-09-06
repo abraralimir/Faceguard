@@ -4,36 +4,36 @@
 
 @layer base {
   :root {
-    --background: 210 25% 95%; /* #F0F4F8 */
-    --foreground: 224 71% 4%;
+    --background: 224 71% 4%;
+    --foreground: 210 25% 95%;
 
-    --card: 210 25% 98%;
-    --card-foreground: 224 71% 4%;
+    --card: 224 71% 6%;
+    --card-foreground: 210 25% 95%;
 
-    --popover: 210 25% 98%;
-    --popover-foreground: 224 71% 4%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 25% 95%;
 
-    --primary: 189 40% 65%; /* #7EC4CF */
-    --primary-foreground: 180 50% 5%;
+    --primary: 45 95% 55%; /* Gold/Amber */
+    --primary-foreground: 45 90% 5%;
 
-    --secondary: 210 20% 88%;
-    --secondary-foreground: 224 71% 4%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 25% 95%;
 
-    --muted: 210 20% 88%;
-    --muted-foreground: 224 71% 24%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 210 25% 75%;
 
-    --accent: 130 38% 74%; /* #A2D5AB */
-    --accent-foreground: 131 43% 10%;
-
-    --destructive: 0 84.2% 60.2%;
+    --accent: 35 90% 60%; /* Brighter Gold */
+    --accent-foreground: 35 90% 10%;
+    
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 98%;
 
-    --border: 210 20% 80%;
-    --input: 210 20% 84%;
-    --ring: 189 40% 65%;
+    --border: 215 28% 22%;
+    --input: 215 28% 22%;
+    --ring: 45 95% 55%;
 
     --radius: 0.5rem;
   }
@@ -48,8 +48,8 @@
     --popover: 224 71% 4%;
     --popover-foreground: 210 25% 95%;
 
-    --primary: 189 40% 65%;
-    --primary-foreground: 180 50% 5%;
+    --primary: 45 95% 55%; /* Gold/Amber */
+    --primary-foreground: 45 90% 5%;
 
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 25% 95%;
@@ -57,18 +57,18 @@
     --muted: 215 28% 17%;
     --muted-foreground: 210 25% 75%;
 
-    --accent: 130 38% 74%;
-    --accent-foreground: 131 43% 10%;
+    --accent: 35 90% 60%; /* Brighter Gold */
+    --accent-foreground: 35 90% 10%;
     
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 142 71% 55%;
-    --success-foreground: 142 20% 5%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
 
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 189 40% 75%;
+    --border: 215 28% 22%;
+    --input: 215 28% 22%;
+    --ring: 45 95% 55%;
   }
 }
 
@@ -78,5 +78,35 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .background-gradient {
+    @apply fixed inset-0 -z-10 h-full w-full;
+    background: linear-gradient(-45deg, hsl(224, 71%, 4%), hsl(260, 50%, 8%), hsl(330, 40%, 12%), hsl(224, 71%, 4%));
+    background-size: 400% 400%;
+    animation: gradient-animation 25s ease infinite;
+  }
+
+  @keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes pulse-shield {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+  }
+
+  .animate-pulse-shield {
+    animation: pulse-shield 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
