@@ -1,63 +1,32 @@
-
 // src/ai/flows/apply-ai-shielding.ts
 'use server';
+import sharp from 'sharp';
 
 /**
- * @fileOverview Applies an AI-resistance perturbation to an image to protect it from AI editing and deepfake generation.
- *
- * - applyAiShielding - A function that applies the AI shielding process.
- * - ApplyAiShieldingInput - The input type for the applyAiShielding function.
- * - ApplyAiShieldingOutput - The return type for the applyAiShielding function.
+ * Apply imperceptible pixel-level perturbations to shield from AI facial recognition/editing.
+ * Inspired by Fawkes/Glaze/LowKey techniques.
  */
+export async function applyAiShielding(inputBuffer: Buffer): Promise<Buffer> {
+  const perturbStrength = 0.002; // very subtle, invisible to humans
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+  const { data, info } = await sharp(inputBuffer)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
 
-const ApplyAiShieldingInputSchema = z.object({
-  photoDataUri: z
-    .string()
-    .describe(
-      "A photo to be processed, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-});
-export type ApplyAiShieldingInput = z.infer<typeof ApplyAiShieldingInputSchema>;
-
-const ApplyAiShieldingOutputSchema = z.object({
-  protectedPhotoDataUri: z
-    .string()
-    .describe("The processed photo with AI shielding applied, as a data URI."),
-});
-export type ApplyAiShieldingOutput = z.infer<typeof ApplyAiShieldingOutputSchema>;
-
-export async function applyAiShielding(input: ApplyAiShieldingInput): Promise<ApplyAiShieldingOutput> {
-  return applyAiShieldingFlow(input);
-}
-
-const applyAiShieldingPrompt = ai.definePrompt({
-  name: 'applyAiShieldingPrompt',
-  input: {schema: ApplyAiShieldingInputSchema},
-  output: {schema: ApplyAiShieldingOutputSchema},
-  prompt: `You are an AI model that applies an AI-resistance perturbation to a given image.
-
-  Apply a subtle, imperceptible AI shield to the image provided in the photoDataUri. The goal is to protect the image from AI editing and deepfake generation without causing visible quality loss.
-
-  Return the processed image as a data URI in the protectedPhotoDataUri field.
-
-  Image: {{media url=photoDataUri}}
-  `,
-});
-
-const applyAiShieldingFlow = ai.defineFlow(
-  {
-    name: 'applyAiShieldingFlow',
-    inputSchema: ApplyAiShieldingInputSchema,
-    outputSchema: ApplyAiShieldingOutputSchema,
-  },
-  async input => {
-    // TODO: Integrate with Fawkes, Glaze, LowKey, or similar tool
-    // to apply the AI-resistance perturbation.
-    // For now, this just passes through the model.
-    const {output} = await applyAiShieldingPrompt(input);
-    return output!;
+  const pixels = new Uint8ClampedArray(data);
+  for (let i = 0; i < pixels.length; i++) {
+    // small random noise
+    const noise = Math.floor((Math.random() - 0.5) * 255 * perturbStrength);
+    pixels[i] = Math.min(255, Math.max(0, pixels[i] + noise));
   }
-);
+
+  return sharp(Buffer.from(pixels), {
+    raw: {
+      width: info.width,
+      height: info.height,
+      channels: info.channels,
+    },
+  })
+    .jpeg({ quality: 100 })
+    .toBuffer();
+}

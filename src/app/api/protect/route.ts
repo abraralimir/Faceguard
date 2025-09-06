@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { applyAiShielding } from '@/ai/flows/apply-ai-shielding';
 import { embedInvisibleWatermark } from '@/ai/flows/embed-invisible-watermark';
-import { randomUUID } from 'crypto';
+import sharp from 'sharp';
 
 // Node.js crypto module for hashing
 import { createHash } from 'crypto';
@@ -32,55 +32,65 @@ function checkRateLimit(ip: string): boolean {
 export async function POST(req: NextRequest) {
   const ip = req.ip ?? '127.0.0.1';
   if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   try {
     const body = await req.json();
-    let { imageDataUri } = body;
+    const { imageDataUri } = body;
 
-    if (!imageDataUri || typeof imageDataUri !== 'string' || !imageDataUri.startsWith('data:image/')) {
-      return NextResponse.json({ error: 'Invalid image data URI provided.' }, { status: 400 });
+    if (
+      !imageDataUri ||
+      typeof imageDataUri !== 'string' ||
+      !imageDataUri.startsWith('data:image/')
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid image data URI provided.' },
+        { status: 400 }
+      );
     }
+
+    const mimeType = imageDataUri.substring(
+      imageDataUri.indexOf(':') + 1,
+      imageDataUri.indexOf(';')
+    );
+    const base64Data = imageDataUri.split(',')[1];
+    if (!base64Data) {
+      return NextResponse.json(
+        { error: 'Could not extract image data from URI.' },
+        { status: 400 }
+      );
+    }
+    let imageBuffer = Buffer.from(base64Data, 'base64');
 
     // --- Step 1: Apply AI Shielding ---
-    // This is a placeholder call to a GenAI flow.
-    const shieldingResult = await applyAiShielding({ photoDataUri: imageDataUri });
-    let processedUri = shieldingResult.protectedPhotoDataUri;
+    imageBuffer = await applyAiShielding(imageBuffer);
 
     // --- Step 2: Embed Invisible Watermark ---
-    // This is also a placeholder call to a GenAI flow.
-    const watermarkPayload = randomUUID();
-    const watermarkResult = await embedInvisibleWatermark({ 
-      photoDataUri: processedUri,
-      watermark: watermarkPayload,
-    });
-    processedUri = watermarkResult.watermarkedPhotoDataUri;
+    imageBuffer = await embedInvisibleWatermark(imageBuffer);
 
     // --- Step 3: Strip Metadata ---
-    // TODO: The user will insert their Python pipeline for this.
-    // For a Node.js implementation, a library like `sharp` would be used here.
-    // As we are not adding new dependencies, this step is currently a placeholder.
-    // Example with sharp:
-    // const imageBuffer = Buffer.from(processedUri.split(',')[1], 'base64');
-    // const strippedBuffer = await sharp(imageBuffer).withMetadata(false).toBuffer();
-    // processedUri = `data:${fileMimeType};base64,${strippedBuffer.toString('base64')}`;
+    imageBuffer = await sharp(imageBuffer).withMetadata({ exif: {} }).toBuffer();
 
     // --- Step 4: Generate SHA-256 Hash ---
-    const base64Data = processedUri.split(',')[1];
-    if (!base64Data) {
-        return NextResponse.json({ error: 'Could not extract image data for hashing.' }, { status: 500 });
-    }
-    const imageBuffer = Buffer.from(base64Data, 'base64');
     const hash = createHash('sha256').update(imageBuffer).digest('hex');
 
+    const processedImageUri = `data:${mimeType};base64,${imageBuffer.toString(
+      'base64'
+    )}`;
+
     return NextResponse.json({
-      processedImageUri: processedUri,
+      processedImageUri: processedImageUri,
       hash: hash,
     });
-
   } catch (error) {
     console.error('Image processing failed:', error);
-    return NextResponse.json({ error: 'An unexpected error occurred during image processing.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'An unexpected error occurred during image processing.' },
+      { status: 500 }
+    );
   }
 }

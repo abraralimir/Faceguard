@@ -1,56 +1,38 @@
-
 'use server';
+import Jimp from 'jimp';
+import crypto from 'crypto';
+
 /**
- * @fileOverview Embeds an invisible cryptographic watermark into an image.
- *
- * - embedInvisibleWatermark - A function that embeds the watermark.
- * - EmbedInvisibleWatermarkInput - The input type for the embedInvisibleWatermark function.
- * - EmbedInvisibleWatermarkOutput - The return type for the embedInvisibleWatermark function.
+ * Embed invisible watermark by steganography in LSB of pixels.
  */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const EmbedInvisibleWatermarkInputSchema = z.object({
-  photoDataUri: z
-    .string()
-    .describe(
-      "A photo to embed a watermark into, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-  watermark: z.string().describe('The invisible watermark to embed.'),
-});
-export type EmbedInvisibleWatermarkInput = z.infer<typeof EmbedInvisibleWatermarkInputSchema>;
-
-const EmbedInvisibleWatermarkOutputSchema = z.object({
-  watermarkedPhotoDataUri: z
-    .string()
-    .describe(
-      "The watermarked photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'.'"
-    ),
-});
-export type EmbedInvisibleWatermarkOutput = z.infer<typeof EmbedInvisibleWatermarkOutputSchema>;
-
 export async function embedInvisibleWatermark(
-  input: EmbedInvisibleWatermarkInput
-): Promise<EmbedInvisibleWatermarkOutput> {
-  return embedInvisibleWatermarkFlow(input);
-}
+  inputBuffer: Buffer
+): Promise<Buffer> {
+  const image = await Jimp.read(inputBuffer);
+  const watermarkText = `FACEGUARD-${Date.now()}-${crypto
+    .randomBytes(8)
+    .toString('hex')}`;
 
-const prompt = ai.definePrompt({
-  name: 'embedInvisibleWatermarkPrompt',
-  input: {schema: EmbedInvisibleWatermarkInputSchema},
-  output: {schema: EmbedInvisibleWatermarkOutputSchema},
-  prompt: `You are an expert in steganography and digital watermarking.  You can embed the invisible watermark {{{watermark}}} into the photo at the URL {{{media url=photoDataUri}}}. Return the watermarked image as a data URI in the watermarkedPhotoDataUri field. Do not modify the image in any way other than to embed the provided watermark, and ensure that the image quality is preserved.`,
-});
-
-const embedInvisibleWatermarkFlow = ai.defineFlow(
-  {
-    name: 'embedInvisibleWatermarkFlow',
-    inputSchema: EmbedInvisibleWatermarkInputSchema,
-    outputSchema: EmbedInvisibleWatermarkOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  // Simple LSB watermark in red channel
+  let bitIndex = 0;
+  for (
+    let y = 0;
+    y < image.bitmap.height && bitIndex < watermarkText.length * 8;
+    y++
+  ) {
+    for (
+      let x = 0;
+      x < image.bitmap.width && bitIndex < watermarkText.length * 8;
+      x++
+    ) {
+      const idx = (y * image.bitmap.width + x) * 4;
+      const red = image.bitmap.data[idx];
+      const charCode = watermarkText.charCodeAt(Math.floor(bitIndex / 8));
+      const bit = (charCode >> (bitIndex % 8)) & 1;
+      image.bitmap.data[idx] = (red & 0xfe) | bit;
+      bitIndex++;
+    }
   }
-);
+
+  return image.getBufferAsync(Jimp.MIME_JPEG);
+}
