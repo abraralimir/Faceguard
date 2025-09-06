@@ -54,17 +54,21 @@ export async function embedInvisibleWatermark(
     const channelNum = Math.floor(seededRandom() * 3); // R, G, or B
     const uniqueIndex = pixelNum * 3 + channelNum;
 
-    if (usedIndices.has(uniqueIndex) || (pixelNum * image.bitmap.raw.data.BYTES_PER_PIXEL + channelNum) >= image.bitmap.raw.data.length) {
-      continue; // Avoid writing to the same place twice or out of bounds
+    if (usedIndices.has(uniqueIndex)) {
+      continue; // Avoid writing to the same place twice
     }
 
     const x = pixelNum % width;
     const y = Math.floor(pixelNum / width);
     const pixelIdx = image.getPixelIndex(x, y);
     const channelIdx = pixelIdx + channelNum;
+
+    if (channelIdx >= image.bitmap.data.length) {
+        continue; // Avoid writing out of bounds
+    }
     
     const bit = parseInt(watermarkBinary[bitIndex], 2);
-    image.bitmap.raw.data[channelIdx] = (image.bitmap.raw.data[channelIdx] & 0xFE) | bit;
+    image.bitmap.data[channelIdx] = (image.bitmap.data[channelIdx] & 0xFE) | bit;
 
     usedIndices.add(uniqueIndex);
     bitIndex++;
