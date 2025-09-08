@@ -26,11 +26,14 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb', // Increase for video uploads
+      bodySizeLimit: '128mb',
+    },
+  },
+  api: {
+    bodyParser: {
+      sizeLimit: '128mb',
     },
   },
 };
 
 export default nextConfig;
-
-    

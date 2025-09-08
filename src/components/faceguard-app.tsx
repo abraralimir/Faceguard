@@ -6,16 +6,16 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 type ProtectionType = "image" | "video";
 
-const IMAGE_MAX_SIZE_MB = 15;
+const IMAGE_MAX_SIZE_MB = 100;
 const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
-const VIDEO_MAX_SIZE_MB = 50;
-const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime'];
+const VIDEO_MAX_SIZE_MB = 120;
+const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
 const processingSteps = [
   "Applying multi-layered AI shield...",
@@ -254,7 +254,7 @@ export function FaceGuardApp() {
         onFileChange={handleFileChange}
         acceptedMimeTypes={VIDEO_ACCEPTED_MIME_TYPES}
         maxSizeMb={VIDEO_MAX_SIZE_MB}
-        descriptionText="MP4 or MOV"
+        descriptionText="MP4, MOV, MKV, or WEBM"
       />
     );
   };
@@ -282,7 +282,10 @@ export function FaceGuardApp() {
             <p className="text-sm text-muted-foreground">{file?.name}</p>
              <div className="flex gap-4 pt-4">
               <Button variant="outline" onClick={resetState}>Clear</Button>
-              <Button onClick={handleProcessVideo} className="bg-primary hover:bg-primary/90 text-primary-foreground">Register Video</Button>
+              <Button onClick={handleProcessVideo} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Fingerprint />
+                Register Video Fingerprint
+              </Button>
             </div>
         </div>
       );
@@ -295,8 +298,8 @@ export function FaceGuardApp() {
        return (
         <div className="flex flex-col items-center gap-4 text-center p-8">
           <div className="relative w-24 h-24">
-            <ShieldCheck className="w-24 h-24 text-primary/30" />
-            <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
+            <Fingerprint className="w-24 h-24 text-primary/30" />
+            <Fingerprint className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
           </div>
           <p className="text-lg font-medium mt-4">Registering your video...</p>
           <p className="text-sm text-muted-foreground">Calculating unique cryptographic hash.</p>

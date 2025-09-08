@@ -1,5 +1,5 @@
 import { FaceGuardApp } from '@/components/faceguard-app';
-import { ShieldAlert, FileSignature, FileLock2, Lock } from 'lucide-react';
+import { ShieldAlert, FileSignature, FileLock2, Lock, Fingerprint } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -9,10 +9,9 @@ export default function Home() {
           FaceGuard
         </h1>
         <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
-          Turn your images into an invisible fortress. FaceGuard applies a
-          state-of-the-art, multi-layered defense to make your photos
-          unintelligible to AI, protecting you from deepfakes, data scraping,
-          and unauthorized use.
+          Turn your images and videos into an invisible fortress. FaceGuard applies
+          a state-of-the-art defense to make your photos unintelligible to AI,
+          and registers your videos with an unforgeable cryptographic hash.
         </p>
       </div>
 
@@ -22,27 +21,27 @@ export default function Home() {
         <h2 className="text-3xl font-headline font-bold text-foreground mb-10">
           A New Standard in Digital Protection
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="flex flex-col items-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <ShieldAlert className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Multi-Layered AI Shield</h3>
             <p className="text-sm text-muted-foreground">
-              We apply several layers of subtle, randomized noise and color
-              shifts. This "AI landmine" is invisible to you but corrupts data
-              for models trying to learn from or alter your face.
+              For images, we apply invisible noise and color shifts. This "AI landmine"
+              is imperceptible to you but corrupts data for models trying to
+              learn from or alter your face.
             </p>
           </div>
           <div className="flex flex-col items-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <FileLock2 className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Resilient Invisible Watermark</h3>
+            <h3 className="text-lg font-semibold mb-2">Invisible Watermark</h3>
             <p className="text-sm text-muted-foreground">
               A robust, invisible signal is cryptographically embedded across
-              the image, warning against manipulation and surviving
-              compression, cropping, and filtering.
+              your image, surviving compression, cropping, and filtering to
+              warn against manipulation.
             </p>
           </div>
           <div className="flex flex-col items-center">
@@ -51,9 +50,18 @@ export default function Home() {
             </div>
             <h3 className="text-lg font-semibold mb-2">Cryptographic Receipt</h3>
             <p className="text-sm text-muted-foreground">
-              You receive a unique, unforgeable digital receipt signed with our
-              server's private key, providing undeniable proof of your image's
-              protected state and authenticity.
+              You receive a unique, unforgeable digital receipt for your image, signed with
+              our server's private key, providing undeniable proof of its
+              protected state.
+            </p>
+          </div>
+           <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
+              <Fingerprint className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Video Fingerprinting</h3>
+            <p className="text-sm text-muted-foreground">
+               Your video is not altered. We compute a unique SHA-256 hash (a digital fingerprint) to register its authenticity, giving you proof of the original file.
             </p>
           </div>
         </div>

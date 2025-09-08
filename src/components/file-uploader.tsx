@@ -30,7 +30,7 @@ export function FileUploader({ onFileChange, acceptedMimeTypes, maxSizeMb, descr
       toast({
         variant: "destructive",
         title: "Upload Error",
-        description: `File is larger than ${maxSizeMb}MB.`,
+        description: `File is larger than ${maxSizeMb}MB. Please upload a smaller file.`,
       });
       return false;
     }
