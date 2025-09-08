@@ -7,30 +7,30 @@ import { cn } from "@/lib/utils";
 
 interface FileUploaderProps {
   onFileChange: (file: File | null) => void;
+  acceptedMimeTypes: string[];
+  maxSizeMb: number;
+  descriptionText: string;
 }
 
-const MAX_SIZE_MB = 10;
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-const ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
-
-export function FileUploader({ onFileChange }: FileUploaderProps) {
+export function FileUploader({ onFileChange, acceptedMimeTypes, maxSizeMb, descriptionText }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
+  const maxSizeInBytes = maxSizeMb * 1024 * 1024;
 
   const validateFile = (file: File): boolean => {
-    if (!ACCEPTED_MIME_TYPES.includes(file.type)) {
+    if (!acceptedMimeTypes.includes(file.type)) {
       toast({
         variant: "destructive",
         title: "Upload Error",
-        description: "Invalid file type. Please upload a JPEG or PNG.",
+        description: `Invalid file type. Please upload a ${descriptionText}.`,
       });
       return false;
     }
-    if (file.size > MAX_SIZE_BYTES) {
+    if (file.size > maxSizeInBytes) {
       toast({
         variant: "destructive",
         title: "Upload Error",
-        description: `File is larger than ${MAX_SIZE_MB}MB.`,
+        description: `File is larger than ${maxSizeMb}MB.`,
       });
       return false;
     }
@@ -73,7 +73,7 @@ export function FileUploader({ onFileChange }: FileUploaderProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => document.getElementById('file-upload')?.click()}
+      onClick={() => document.getElementById(`file-upload-${descriptionText}`)?.click()}
       className={cn(
         "flex flex-col items-center justify-center w-full h-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
         "border-border/50 hover:border-primary hover:bg-primary/10",
@@ -85,17 +85,17 @@ export function FileUploader({ onFileChange }: FileUploaderProps) {
       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center pointer-events-none">
         <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
         <p className="mb-2 text-lg font-semibold text-foreground">
-          <span className="text-primary">Click to upload</span> or drag and drop your image
+          <span className="text-primary">Click to upload</span> or drag and drop
         </p>
         <p className="text-xs text-muted-foreground">
-          PNG or JPG (Max {MAX_SIZE_MB}MB)
+          {descriptionText} (Max {maxSizeMb}MB)
         </p>
       </div>
       <input
-        id="file-upload"
+        id={`file-upload-${descriptionText}`}
         type="file"
         className="hidden"
-        accept={ACCEPTED_MIME_TYPES.join(',')}
+        accept={acceptedMimeTypes.join(',')}
         onChange={(e) => handleFileSelect(e.target.files)}
       />
     </div>
