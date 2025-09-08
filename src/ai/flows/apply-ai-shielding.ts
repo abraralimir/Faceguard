@@ -6,7 +6,7 @@ export type ProtectionLevel = 'light' | 'medium' | 'strong';
 const STRENGTHS = {
   light: { noise: 3, shift: 1 },
   medium: { noise: 5, shift: 1 },
-  strong: { noise: 8, shift: 2 },
+  strong: { noise: 12, shift: 3 }, // Significantly increased for "AI landmine" effect
 };
 
 /**
