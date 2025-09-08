@@ -14,17 +14,27 @@ const STRENGTHS = {
  * This version is tuned to be nearly imperceptible to the human eye.
  * 1. High-Frequency Dithered Noise: A very fine, structured pattern to disrupt local features.
  * 2. Subtle Chromatic Aberration: A minimal color channel shift.
+ * 3. Fluid Transparent Watermark: An almost invisible text warning.
  */
 export async function applyAiShielding(
   inputBuffer: Buffer,
   seed: string
 ): Promise<Buffer> {
-  const { data, info } = await sharp(inputBuffer)
+  const image = sharp(inputBuffer);
+  const metadata = await image.metadata();
+  const { width, height } = metadata;
+
+  if (!width || !height) {
+    throw new Error('Could not determine image dimensions.');
+  }
+
+  // --- Step 1: Get the raw pixel data for manipulation ---
+  const { data, info } = await image
     .raw()
     .toBuffer({ resolveWithObject: true });
 
   const pixels = new Uint8ClampedArray(data);
-  const { width, height, channels } = info;
+  const { channels } = info;
   const strength = STRENGTHS['strong']; // Always use strong
 
   // --- Seeded PRNG for deterministic randomness ---
@@ -47,7 +57,6 @@ export async function applyAiShielding(
   }
 
   // --- Layer 2: Ultra-Subtle Chromatic Aberration ---
-  // Shift R and B channels slightly in opposite directions
   const shift = strength.shift;
   if (shift > 0) {
     const shiftedPixels = new Uint8ClampedArray(pixels); // Work on a copy
@@ -57,21 +66,51 @@ export async function applyAiShielding(
           const bIndex = (y * width + Math.max(0, x - shift)) * channels;
           const gIndex = (y * width + x) * channels;
 
-          pixels[gIndex] = shiftedPixels[rIndex]; 
+          pixels[gIndex] = shiftedPixels[rIndex];
           pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
           pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
       }
     }
   }
 
-
-  return sharp(Buffer.from(pixels), {
+  // --- Rebuild the image from perturbed pixels ---
+  const perturbedImage = sharp(Buffer.from(pixels), {
     raw: {
       width,
       height,
       channels,
     },
-  })
-  .jpeg({ quality: 98, mozjpeg: true }) // Use very high quality to preserve subtlety
-  .toBuffer();
+  });
+
+  // --- Layer 3: Fluid Transparent Watermark ---
+  const watermarkText = "Warning: This image is protected by SASHA. Any edit on this image is a misuse.";
+  const fontSize = Math.max(12, Math.round(width / 50)); // Responsive font size
+  const svgWatermark = `
+    <svg width="${width}" height="${height}">
+      <text
+        x="50%"
+        y="50%"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="${fontSize}"
+        font-weight="bold"
+        fill="white"
+        opacity="0.02"
+        style="
+          text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+          transform: rotate(-15deg);
+        "
+      >
+        ${watermarkText}
+      </text>
+    </svg>
+  `;
+  const watermarkBuffer = Buffer.from(svgWatermark);
+
+  // --- Composite the watermark over the perturbed image ---
+  return perturbedImage
+    .composite([{ input: watermarkBuffer, tile: false, blend: 'over' }])
+    .jpeg({ quality: 98, mozjpeg: true }) // Use very high quality to preserve subtlety
+    .toBuffer();
 }
