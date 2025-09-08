@@ -437,17 +437,17 @@ export function FaceGuardApp() {
 
 
   return (
-    <Card className="w-full max-w-2xl mt-8 shadow-2xl bg-card/80 backdrop-blur-sm border-white/10">
-      <CardContent className="p-0">
+    <Card className="w-full max-w-2xl mt-8 shadow-2xl bg-card/80 backdrop-blur-sm border-white/10 min-h-[400px]">
+      <CardContent className="p-0 flex flex-col">
         <Tabs value={protectionType} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-b-none rounded-t-lg">
             <TabsTrigger value="image">Image Protection</TabsTrigger>
             <TabsTrigger value="video">Video Registration</TabsTrigger>
           </TabsList>
-          <TabsContent value="image" className="p-6 min-h-[450px] flex items-center justify-center m-0">
+          <TabsContent value="image" className="p-6 flex-grow flex items-center justify-center m-0">
              {renderContent()}
           </TabsContent>
-          <TabsContent value="video" className="p-6 min-h-[450px] flex items-center justify-center m-0">
+          <TabsContent value="video" className="p-6 flex-grow flex items-center justify-center m-0">
              {renderContent()}
           </TabsContent>
         </Tabs>
