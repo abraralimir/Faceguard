@@ -82,35 +82,54 @@ export async function applyAiShielding(
     },
   });
 
-  // --- Layer 3: Fluid Transparent Watermark ---
+  // --- Layer 3: Fluid Transparent Watermark (Embossed Effect) ---
   const watermarkText = "Warning: This image is protected by SASHA. Any edit on this image is a misuse.";
   const fontSize = Math.max(12, Math.round(width / 50)); // Responsive font size
-  const svgWatermark = `
+  const svgWatermarkBase = `
     <svg width="${width}" height="${height}">
       <text
-        x="50%"
-        y="50%"
         dominant-baseline="middle"
         text-anchor="middle"
         font-family="Arial, sans-serif"
         font-size="${fontSize}"
         font-weight="bold"
-        fill="white"
-        opacity="0.05"
-        style="
-          text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
-          transform: rotate(-15deg);
-        "
+        style="transform: rotate(-15deg);"
+        fill="{color}"
+        opacity="{opacity}"
+        x="{x}"
+        y="{y}"
       >
         ${watermarkText}
       </text>
     </svg>
   `;
-  const watermarkBuffer = Buffer.from(svgWatermark);
+
+  const watermarkOpacity = 0.03;
+  
+  // Create two layers for an embossed effect, more detectable by AI
+  const watermarkWhite = Buffer.from(
+      svgWatermarkBase
+        .replace('{color}', 'white')
+        .replace('{opacity}', String(watermarkOpacity))
+        .replace('{x}', '50.1%')
+        .replace('{y}', '50.1%')
+  );
+
+  const watermarkBlack = Buffer.from(
+      svgWatermarkBase
+        .replace('{color}', 'black')
+        .replace('{opacity}', String(watermarkOpacity))
+        .replace('{x}', '50%')
+        .replace('{y}', '50%')
+  );
+
 
   // --- Composite the watermark over the perturbed image ---
   return perturbedImage
-    .composite([{ input: watermarkBuffer, tile: false, blend: 'over' }])
+    .composite([
+        { input: watermarkBlack, tile: false, blend: 'over' },
+        { input: watermarkWhite, tile: false, blend: 'over' }
+    ])
     .jpeg({ quality: 98, mozjpeg: true }) // Use very high quality to preserve subtlety
     .toBuffer();
 }
