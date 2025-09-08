@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyAiShielding, ProtectionLevel } from '@/ai/flows/apply-ai-shielding';
+import { applyAiShielding } from '@/ai/flows/apply-ai-shielding';
 import { embedInvisibleWatermark } from '@/ai/flows/embed-invisible-watermark';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
@@ -8,7 +8,7 @@ import forge from 'node-forge';
 // --- CONFIGURATION ---
 const OWNER_ID = 'FaceGuardUser'; // A default owner ID
 const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-is-long-and-secure';
-const PROTECTION_LEVEL: ProtectionLevel = 'strong'; // Always use strong protection
+const PROTECTION_LEVEL = 'strong'; // Always use strong protection
 
 // --- CRYPTOGRAPHIC SETUP (Ed25519) ---
 // This setup generates a key pair when the server starts.
@@ -120,15 +120,9 @@ export async function POST(req: NextRequest) {
     // --- Step 1: Apply Multi-Layered AI Shielding ---
     let shieldedBuffer = await applyAiShielding(imageBuffer, seed, PROTECTION_LEVEL);
 
-    // --- Step 2: Strip All Metadata (important for privacy) ---
-    // Note: We are not explicitly stripping metadata here anymore because applyAiShielding
-    // and embedInvisibleWatermark both process the raw pixel data and rebuild the image,
-    // which effectively strips most metadata. Sharp's final output will also not carry it over.
-    const strippedBuffer = shieldedBuffer; // Renaming for clarity in the flow
+    const finalHash = sha256(shieldedBuffer);
 
-    const finalHash = sha256(strippedBuffer);
-
-    // --- Step 3: Create the Digital Receipt (to be signed) ---
+    // --- Step 2: Create the Digital Receipt (to be signed) ---
     const receipt: Record<string, any> = {
       version: '3.0',
       owner: OWNER_ID,
@@ -142,8 +136,8 @@ export async function POST(req: NextRequest) {
     // The signature is calculated on the receipt *without* the signature field itself.
     receipt.signature = signPayload(receipt);
 
-    // --- Step 4: Embed Resilient Invisible Watermark ---
-    let watermarkedBuffer = await embedInvisibleWatermark(strippedBuffer, receipt);
+    // --- Step 3: Embed Resilient Invisible Watermark ---
+    let watermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
 
     // --- Final Compression and Output ---
     const finalImageBytes = await sharp(watermarkedBuffer)
