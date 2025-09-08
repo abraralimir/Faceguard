@@ -96,7 +96,7 @@ export async function applyAiShielding(
         font-size="${fontSize}"
         font-weight="bold"
         fill="white"
-        opacity="0.02"
+        opacity="0.05"
         style="
           text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
           transform: rotate(-15deg);
