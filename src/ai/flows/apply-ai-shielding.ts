@@ -1,15 +1,24 @@
 'use server';
 import sharp from 'sharp';
 
+export type ProtectionLevel = 'light' | 'medium' | 'strong';
+
+const STRENGTHS = {
+  light: { noise: 3, shift: 1 },
+  medium: { noise: 5, shift: 1 },
+  strong: { noise: 8, shift: 2 },
+};
+
 /**
  * Applies a multi-layered, high-strength but visually subtle perturbation shield.
  * This version is tuned to be nearly imperceptible to the human eye.
  * 1. High-Frequency Dithered Noise: A very fine, structured pattern to disrupt local features.
- * 2. Subtle Chromatic Aberration: A minimal 1px color channel shift.
+ * 2. Subtle Chromatic Aberration: A minimal color channel shift.
  */
 export async function applyAiShielding(
   inputBuffer: Buffer,
-  seed: string
+  seed: string,
+  level: ProtectionLevel = 'medium'
 ): Promise<Buffer> {
   const { data, info } = await sharp(inputBuffer)
     .raw()
@@ -17,6 +26,7 @@ export async function applyAiShielding(
 
   const pixels = new Uint8ClampedArray(data);
   const { width, height, channels } = info;
+  const strength = STRENGTHS[level];
 
   // --- Seeded PRNG for deterministic randomness ---
   let seedValue = 0;
@@ -29,7 +39,7 @@ export async function applyAiShielding(
   };
 
   // --- Layer 1: High-Frequency Dithered Noise ---
-  const noiseStrength = 5; // Drastically reduced for invisibility
+  const noiseStrength = strength.noise;
   for (let i = 0; i < pixels.length; i += channels) {
     const noise = (seededRandom() - 0.5) * noiseStrength;
     pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
@@ -39,19 +49,22 @@ export async function applyAiShielding(
 
   // --- Layer 2: Ultra-Subtle Chromatic Aberration ---
   // Shift R and B channels slightly in opposite directions
-  const shift = 1; // Minimal 1px shift
-  const shiftedPixels = new Uint8ClampedArray(pixels); // Work on a copy
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-        const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
-        const bIndex = (y * width + Math.max(0, x - shift)) * channels;
-        const gIndex = (y * width + x) * channels;
+  const shift = strength.shift;
+  if (shift > 0) {
+    const shiftedPixels = new Uint8ClampedArray(pixels); // Work on a copy
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+          const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
+          const bIndex = (y * width + Math.max(0, x - shift)) * channels;
+          const gIndex = (y * width + x) * channels;
 
-        pixels[gIndex] = shiftedPixels[rIndex]; 
-        pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
-        pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
+          pixels[gIndex] = shiftedPixels[rIndex]; 
+          pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
+          pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
+      }
     }
   }
+
 
   return sharp(Buffer.from(pixels), {
     raw: {

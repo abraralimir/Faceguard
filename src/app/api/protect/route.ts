@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyAiShielding } from '@/ai/flows/apply-ai-shielding';
+import { applyAiShielding, ProtectionLevel } from '@/ai/flows/apply-ai-shielding';
 import { embedInvisibleWatermark } from '@/ai/flows/embed-invisible-watermark';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { imageDataUri } = body;
+    const { imageDataUri, protectionLevel = 'medium' } = body as { imageDataUri: string, protectionLevel: ProtectionLevel };
 
     if (!imageDataUri || typeof imageDataUri !== 'string' || !imageDataUri.startsWith('data:image/')) {
       return NextResponse.json({ error: 'Invalid image data URI provided.' }, { status: 400 });
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // --- Step 1: Apply Multi-Layered AI Shielding ---
-    let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
+    let shieldedBuffer = await applyAiShielding(imageBuffer, seed, protectionLevel);
 
     // --- Step 2: Strip All Metadata (important for privacy) ---
     // Note: We are not explicitly stripping metadata here anymore because applyAiShielding
@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
+      protection_level: protectionLevel,
     };
     // The signature is calculated on the receipt *without* the signature field itself.
     receipt.signature = signPayload(receipt);
