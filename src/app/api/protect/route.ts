@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
     // --- Final Compression and Output ---
     const finalImageBytes = await sharp(watermarkedBuffer)
-      .jpeg({ quality: 95, optimize_coding: true, mozjpeg: true })
+      .jpeg({ quality: 98, optimize_coding: true, mozjpeg: true })
       .toBuffer();
 
     const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
@@ -159,3 +159,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+    

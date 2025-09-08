@@ -14,7 +14,7 @@ import { Alert, AlertDescription as AlertDescription, AlertTitle } from "@/compo
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 type ProtectionType = "image" | "video";
 
-const IMAGE_MAX_SIZE_MB = 10;
+const IMAGE_MAX_SIZE_MB = 15;
 const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const VIDEO_MAX_SIZE_MB = 50;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime'];
@@ -306,3 +306,5 @@ export function FaceGuardApp() {
     </Card>
   );
 }
+
+    
