@@ -17,8 +17,7 @@ const STRENGTHS = {
  */
 export async function applyAiShielding(
   inputBuffer: Buffer,
-  seed: string,
-  level: ProtectionLevel = 'medium'
+  seed: string
 ): Promise<Buffer> {
   const { data, info } = await sharp(inputBuffer)
     .raw()
@@ -26,7 +25,7 @@ export async function applyAiShielding(
 
   const pixels = new Uint8ClampedArray(data);
   const { width, height, channels } = info;
-  const strength = STRENGTHS[level];
+  const strength = STRENGTHS['strong']; // Always use strong
 
   // --- Seeded PRNG for deterministic randomness ---
   let seedValue = 0;

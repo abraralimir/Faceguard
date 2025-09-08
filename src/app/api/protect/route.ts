@@ -8,7 +8,6 @@ import forge from 'node-forge';
 // --- CONFIGURATION ---
 const OWNER_ID = 'FaceGuardUser'; // A default owner ID
 const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-is-long-and-secure';
-const PROTECTION_LEVEL = 'strong'; // Always use strong protection
 
 // --- CRYPTOGRAPHIC SETUP (Ed25519) ---
 // This setup generates a key pair when the server starts.
@@ -118,7 +117,7 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // --- Step 1: Apply Multi-Layered AI Shielding ---
-    let shieldedBuffer = await applyAiShielding(imageBuffer, seed, PROTECTION_LEVEL);
+    let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
     const finalHash = sha256(shieldedBuffer);
 
@@ -131,7 +130,7 @@ export async function POST(req: NextRequest) {
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: PROTECTION_LEVEL,
+      protection_level: 'strong',
     };
     // The signature is calculated on the receipt *without* the signature field itself.
     receipt.signature = signPayload(receipt);
