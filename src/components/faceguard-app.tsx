@@ -94,6 +94,43 @@ export function FaceGuardApp() {
     }
   };
 
+  const processFile = async (
+    file: File,
+    apiEndpoint: string,
+    bodyKey: string
+  ): Promise<{ processedUri: string; hash: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const dataUri = reader.result as string;
+        try {
+          const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [bodyKey]: dataUri }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to process ${protectionType}.`);
+          }
+
+          const data = await response.json();
+          resolve({
+            processedUri: data.processedImageUri || data.processedVideoUri,
+            hash: data.hash,
+          });
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = (error) => {
+        reject(new Error("Failed to read file."));
+      };
+    });
+  };
+
   const handleProcessImage = async () => {
     if (!file) return;
 
@@ -101,30 +138,10 @@ export function FaceGuardApp() {
     setError(null);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const imageDataUri = reader.result as string;
-
-        const response = await fetch('/api/protect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageDataUri }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process image.');
-        }
-
-        const data = await response.json();
-        setProcessedImageUri(data.processedImageUri);
-        setFileHash(data.hash);
-        setAppState("success");
-      };
-      reader.onerror = () => {
-        throw new Error("Failed to read file.");
-      }
+      const { processedUri, hash } = await processFile(file, '/api/protect', 'imageDataUri');
+      setProcessedImageUri(processedUri);
+      setFileHash(hash);
+      setAppState("success");
     } catch (e: any) {
       const errorMessage = e.message || "An unknown error occurred.";
       setError(errorMessage);
@@ -144,30 +161,10 @@ export function FaceGuardApp() {
     setError(null);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const videoDataUri = reader.result as string;
-
-        const response = await fetch('/api/protect-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoDataUri }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process video.');
-        }
-
-        const data = await response.json();
-        setProcessedVideoUri(data.processedVideoUri);
-        setFileHash(data.hash)
-        setAppState("success");
-      };
-      reader.onerror = () => {
-        throw new Error("Failed to read file.");
-      }
+      const { processedUri, hash } = await processFile(file, '/api/protect-video', 'videoDataUri');
+      setProcessedVideoUri(processedUri);
+      setFileHash(hash)
+      setAppState("success");
     } catch (e: any) {
       const errorMessage = e.message || "An unknown error occurred.";
       setError(errorMessage);
