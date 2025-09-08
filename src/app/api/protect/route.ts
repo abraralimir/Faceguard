@@ -8,6 +8,7 @@ import forge from 'node-forge';
 // --- CONFIGURATION ---
 const OWNER_ID = 'FaceGuardUser'; // A default owner ID
 const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-is-long-and-secure';
+const PROTECTION_LEVEL: ProtectionLevel = 'strong'; // Always use strong protection
 
 // --- CRYPTOGRAPHIC SETUP (Ed25519) ---
 // This setup generates a key pair when the server starts.
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { imageDataUri, protectionLevel = 'medium' } = body as { imageDataUri: string, protectionLevel: ProtectionLevel };
+    const { imageDataUri } = body as { imageDataUri: string };
 
     if (!imageDataUri || typeof imageDataUri !== 'string' || !imageDataUri.startsWith('data:image/')) {
       return NextResponse.json({ error: 'Invalid image data URI provided.' }, { status: 400 });
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // --- Step 1: Apply Multi-Layered AI Shielding ---
-    let shieldedBuffer = await applyAiShielding(imageBuffer, seed, protectionLevel);
+    let shieldedBuffer = await applyAiShielding(imageBuffer, seed, PROTECTION_LEVEL);
 
     // --- Step 2: Strip All Metadata (important for privacy) ---
     // Note: We are not explicitly stripping metadata here anymore because applyAiShielding
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: protectionLevel,
+      protection_level: PROTECTION_LEVEL,
     };
     // The signature is calculated on the receipt *without* the signature field itself.
     receipt.signature = signPayload(receipt);

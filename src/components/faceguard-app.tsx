@@ -7,9 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Download, ShieldCheck, Share2, RefreshCw } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Label } from "./ui/label";
-import type { ProtectionLevel } from "@/ai/flows/apply-ai-shielding";
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 
@@ -20,7 +17,6 @@ export function FaceGuardApp() {
   const [imageHash, setImageHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('image.jpg');
-  const [protectionLevel, setProtectionLevel] = useState<ProtectionLevel>('medium');
 
   const { toast } = useToast();
 
@@ -73,7 +69,7 @@ export function FaceGuardApp() {
         const response = await fetch('/api/protect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageDataUri, protectionLevel }),
+          body: JSON.stringify({ imageDataUri }),
         });
 
         if (!response.ok) {
@@ -169,24 +165,6 @@ export function FaceGuardApp() {
           <div className="flex flex-col items-center gap-4 text-center">
             <Image src={filePreviewUrl} alt="Image preview" width={400} height={300} className="rounded-lg object-contain max-h-60 w-auto shadow-lg" data-ai-hint="people photo"/>
             <p className="text-sm text-muted-foreground">{file?.name}</p>
-            
-            <div className="space-y-3 pt-2">
-                <Label className="font-medium">Protection Level</Label>
-                <RadioGroup defaultValue="medium" onValueChange={(v) => setProtectionLevel(v as ProtectionLevel)} className="flex items-center gap-6">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="light" id="r1" />
-                        <Label htmlFor="r1">Light</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="medium" id="r2" />
-                        <Label htmlFor="r2">Medium</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="strong" id="r3" />
-                        <Label htmlFor="r3">Strong</Label>
-                    </div>
-                </RadioGroup>
-            </div>
 
             <div className="flex gap-4 pt-4">
               <Button variant="outline" onClick={resetState}>Clear</Button>
