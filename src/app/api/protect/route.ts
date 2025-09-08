@@ -49,7 +49,8 @@ function signPayload(payload: Record<string, any>): string {
   }
   // Sorting keys ensures a consistent JSON string, which is critical for verification.
   const message = JSON.stringify(payload, Object.keys(payload).sort());
-  const messageBytes = Buffer.from(message, 'utf8');
+  // IMPORTANT: The message must be encoded as a binary string for forge
+  const messageBytes = forge.util.encodeUtf8(message);
 
   // Use forge to sign the message bytes
   const signature = forge.pki.ed25519.sign({
