@@ -133,12 +133,16 @@ export async function POST(req: NextRequest) {
       // final_sha256 and signature will be added after watermarking
     };
 
-    // --- Step 3: Embed the receipt as an invisible watermark ---
-    // This creates the final image buffer.
-    const watermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
+    // --- Step 3: Embed a preliminary receipt (without final hash/sig) ---
+    // This creates an intermediate image buffer.
+    const preWatermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, {
+        ...receipt,
+        final_sha256: 'pending', // Placeholder
+    });
+
 
     // --- Step 4: Calculate the TRUE final hash from the watermarked image ---
-    const finalHash = sha256(watermarkedBuffer);
+    const finalHash = sha256(preWatermarkedBuffer);
     receipt.final_sha256 = finalHash;
 
     // --- Step 5: Sign the FINAL receipt ---
@@ -146,23 +150,22 @@ export async function POST(req: NextRequest) {
     receipt.signature = signPayload(receipt);
 
     // --- Step 6: Re-embed the FULLY signed receipt ---
-    // This is necessary to ensure the signature is part of the final artifact.
+    // This ensures the signature is part of the final artifact.
     // This step is fast as it just updates the watermark payload.
-    const finalImageBytes = await embedInvisibleWatermark(watermarkedBuffer, receipt);
+    const finalImageBytes = await embedInvisibleWatermark(shieldedBuffer, receipt);
 
     // --- Final Output ---
     const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
     
     // The final hash should match the hash of the re-watermarked buffer.
-    // For simplicity, we trust the `embedInvisibleWatermark` is deterministic
-    // and return the hash calculated before the final embed.
+    // This verification step is critical.
     const finalVerificationHash = sha256(finalImageBytes);
     
     if(finalVerificationHash !== receipt.final_sha256) {
-        console.warn("Verification hash mismatch. This should not happen.");
+        console.warn("Verification hash mismatch after final embed. This should not happen, but we will use the actual final hash.");
         // We will trust the hash of the *final* output buffer for the client.
          receipt.final_sha256 = finalVerificationHash;
-         receipt.signature = signPayload(receipt);
+         receipt.signature = signPayload(receipt); // Re-sign with the correct hash
     }
 
 

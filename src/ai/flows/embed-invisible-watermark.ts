@@ -1,3 +1,4 @@
+
 'use server';
 import Jimp from 'jimp';
 
@@ -16,7 +17,12 @@ export async function embedInvisibleWatermark(
   const image = await Jimp.read(inputBuffer);
   const signature = 'FG-WARN'; // FaceGuard Warning Signal
   const warning = 'FACEGUARD_DO_NOT_EDIT_OR_MANIPULATE';
-  const payload = `${receipt.seed}::${receipt.final_sha256.substring(0, 16)}`;
+  // Use a placeholder if final_sha256 isn't ready yet.
+  const hashPayload = (receipt.final_sha256 && receipt.final_sha256 !== 'pending') 
+    ? receipt.final_sha256.substring(0, 16) 
+    : '0'.repeat(16);
+
+  const payload = `${receipt.seed}::${hashPayload}`;
   const watermarkText = `${signature}::${warning}::${payload}`;
 
   let watermarkBinary = '';
