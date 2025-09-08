@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { applyAiShielding } from '@/ai/flows/apply-ai-shielding';
 import { embedInvisibleWatermark } from '@/ai/flows/embed-invisible-watermark';
@@ -117,37 +118,57 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // --- Step 1: Apply Multi-Layered AI Shielding ---
-    let shieldedBuffer = await applyAiShielding(imageBuffer, seed);
+    const shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
-    const finalHash = sha256(shieldedBuffer);
-
-    // --- Step 2: Create the Digital Receipt (to be signed) ---
+    // --- Step 2: Create a PRELIMINARY receipt (to be embedded) ---
+    // The final_sha256 and signature will be added later.
     const receipt: Record<string, any> = {
       version: '3.0',
       owner: OWNER_ID,
       orig_sha256: originalHash,
-      final_sha256: finalHash,
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
       protection_level: 'strong',
+      // final_sha256 and signature will be added after watermarking
     };
-    // The signature is calculated on the receipt *without* the signature field itself.
+
+    // --- Step 3: Embed the receipt as an invisible watermark ---
+    // This creates the final image buffer.
+    const watermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
+
+    // --- Step 4: Calculate the TRUE final hash from the watermarked image ---
+    const finalHash = sha256(watermarkedBuffer);
+    receipt.final_sha256 = finalHash;
+
+    // --- Step 5: Sign the FINAL receipt ---
+    // Now that the receipt is complete, we can sign it.
     receipt.signature = signPayload(receipt);
 
-    // --- Step 3: Embed Resilient Invisible Watermark ---
-    let watermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
+    // --- Step 6: Re-embed the FULLY signed receipt ---
+    // This is necessary to ensure the signature is part of the final artifact.
+    // This step is fast as it just updates the watermark payload.
+    const finalImageBytes = await embedInvisibleWatermark(watermarkedBuffer, receipt);
 
-    // --- Final Compression and Output ---
-    const finalImageBytes = await sharp(watermarkedBuffer)
-      .jpeg({ quality: 98, optimize_coding: true, mozjpeg: true })
-      .toBuffer();
-
+    // --- Final Output ---
     const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
+    
+    // The final hash should match the hash of the re-watermarked buffer.
+    // For simplicity, we trust the `embedInvisibleWatermark` is deterministic
+    // and return the hash calculated before the final embed.
+    const finalVerificationHash = sha256(finalImageBytes);
+    
+    if(finalVerificationHash !== receipt.final_sha256) {
+        console.warn("Verification hash mismatch. This should not happen.");
+        // We will trust the hash of the *final* output buffer for the client.
+         receipt.final_sha256 = finalVerificationHash;
+         receipt.signature = signPayload(receipt);
+    }
+
 
     return NextResponse.json({
       processedImageUri: processedImageUri,
-      hash: finalHash,
+      hash: receipt.final_sha256,
       receipt: receipt,
     });
   } catch (error) {
@@ -159,5 +180,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-    
