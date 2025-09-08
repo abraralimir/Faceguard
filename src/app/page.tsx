@@ -79,7 +79,7 @@ export default function Home() {
       </div>
 
        <footer className="w-full max-w-5xl text-center mt-20 text-muted-foreground text-sm">
-          <p>&copy; 2025 FaceGuard by SASHA, a product of MIR BIN ALI. All Rights Reserved.</p>
+          <p>&copy; 2025 FaceGuard, a product of SASHA. All Rights Reserved.</p>
        </footer>
     </main>
   );
