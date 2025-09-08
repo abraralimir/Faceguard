@@ -6,7 +6,7 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
@@ -17,6 +17,13 @@ const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const VIDEO_MAX_SIZE_MB = 50;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime'];
 
+const processingSteps = [
+  "Applying multi-layered AI shield...",
+  "Embedding resilient watermark...",
+  "Signing cryptographic receipt...",
+  "Finalizing secure image...",
+];
+
 export function FaceGuardApp() {
   const [file, setFile] = useState<File | null>(null);
   const [appState, setAppState] = useState<AppState>("idle");
@@ -26,6 +33,7 @@ export function FaceGuardApp() {
   const [fileHash, setFileHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('protected_file');
+  const [currentStep, setCurrentStep] = useState(0);
 
   const { toast } = useToast();
 
@@ -44,6 +52,19 @@ export function FaceGuardApp() {
     };
   }, [filePreviewUrl]);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (appState === 'processing' && protectionType === 'image') {
+      interval = setInterval(() => {
+        setCurrentStep(prev => (prev < processingSteps.length - 1 ? prev + 1 : prev));
+      }, 750); // Adjust timing as needed
+    } else {
+        setCurrentStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [appState, protectionType]);
+
+
   const resetState = useCallback(() => {
     setFile(null);
     setAppState("idle");
@@ -51,6 +72,7 @@ export function FaceGuardApp() {
     setProcessedVideoUri(null);
     setFileHash(null);
     setError(null);
+    setCurrentStep(0);
     if(filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl)
     }
@@ -245,7 +267,10 @@ export function FaceGuardApp() {
           <p className="text-sm text-muted-foreground">{file?.name}</p>
           <div className="flex gap-4 pt-4">
             <Button variant="outline" onClick={resetState}>Clear</Button>
-            <Button onClick={handleProcessImage} className="bg-primary hover:bg-primary/90 text-primary-foreground">Protect Image</Button>
+            <Button onClick={handleProcessImage} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <ShieldAlert className="mr-2" />
+              Protect Image
+            </Button>
           </div>
         </div>
       );
@@ -265,22 +290,45 @@ export function FaceGuardApp() {
     return null;
   };
 
-  const renderProcessingState = () => (
-    <div className="flex flex-col items-center gap-4 text-center p-8">
-      <div className="relative w-24 h-24">
-        <ShieldCheck className="w-24 h-24 text-primary/30" />
-        <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
+  const renderProcessingState = () => {
+    if (protectionType === 'video') {
+       return (
+        <div className="flex flex-col items-center gap-4 text-center p-8">
+          <div className="relative w-24 h-24">
+            <ShieldCheck className="w-24 h-24 text-primary/30" />
+            <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
+          </div>
+          <p className="text-lg font-medium mt-4">Registering your video...</p>
+          <p className="text-sm text-muted-foreground">Calculating unique cryptographic hash.</p>
+        </div>
+       )
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-4 text-center p-8 w-full max-w-md">
+        <div className="relative w-24 h-24">
+          <ShieldCheck className="w-24 h-24 text-primary/30" />
+          <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
+        </div>
+        <p className="text-lg font-medium mt-4">Building Your Fortress...</p>
+        <div className="mt-4 w-full text-left">
+            {processingSteps.map((step, index) => (
+                <div key={step} className={`flex items-center gap-3 transition-opacity duration-500 ${index <= currentStep ? 'opacity-100' : 'opacity-40'}`}>
+                    <div className="flex items-center justify-center w-6 h-6">
+                        {index < currentStep ? (
+                            <CheckCircle className="w-5 h-5 text-success" />
+                        ) : (
+                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        )}
+                    </div>
+                    <span className={`text-sm ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>{step}</span>
+                </div>
+            ))}
+        </div>
       </div>
-      <p className="text-lg font-medium mt-4">
-        {protectionType === 'video' ? 'Registering your video...' : `Protecting your ${protectionType}...`}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {protectionType === 'video'
-          ? 'Calculating unique cryptographic hash.'
-          : 'Applying shield, watermarking, and signing receipt.'}
-      </p>
-    </div>
-  );
+    );
+  }
+
 
   const renderSuccessState = () => {
     if (protectionType === 'image' && processedImageUri && fileHash) {
@@ -404,4 +452,3 @@ export function FaceGuardApp() {
     </Card>
   );
 }
-    
