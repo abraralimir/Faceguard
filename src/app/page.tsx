@@ -74,8 +74,7 @@ export default function Home() {
         <h2 className="text-2xl font-headline font-bold text-foreground mb-4">Your Privacy is Paramount</h2>
         <p className="text-muted-foreground">
           We process your files entirely in memory. Your images and videos are
-          <span className="text-primary font-semibold"> never stored or logged</span> on our servers. The protection happens, and the
-          data vanishes. Period.
+          <span className="text-primary font-semibold"> never stored or logged</span> on our servers. The protection is applied, and then the data vanishes forever.
         </p>
       </div>
 
