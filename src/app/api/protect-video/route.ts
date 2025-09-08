@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { protectVideo } from '@/ai/flows/protect-video';
+import { createHash } from 'crypto';
+
+function sha256(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex');
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,10 +14,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid video data URI provided.' }, { status: 400 });
     }
 
-    const result = await protectVideo({ videoDataUri });
+    const base64Data = videoDataUri.split(',')[1];
+    if (!base64Data) {
+      return NextResponse.json({ error: 'Could not extract video data from URI.' }, { status: 400 });
+    }
+    const videoBuffer = Buffer.from(base64Data, 'base64');
+
+    const hash = sha256(videoBuffer);
     
     return NextResponse.json({
-      processedVideoUri: result.processedVideoUri,
+      hash: hash,
+      // We return the original URI so the client can still display the video.
+      // The video itself is not modified.
+      processedVideoUri: videoDataUri, 
     });
 
   } catch (error) {
@@ -25,5 +38,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
     

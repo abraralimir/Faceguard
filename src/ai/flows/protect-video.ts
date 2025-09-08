@@ -1,16 +1,17 @@
 'use server';
 /**
- * @fileOverview A video protection AI agent.
- *
- * - protectVideo - A function that handles the video protection process.
+ * @fileOverview A video protection agent.
+ * This file is currently not a Genkit flow, but contains types for video processing.
+ * 
  * - ProtectVideoInput - The input type for the protectVideo function.
  * - ProtectVideoOutput - The return type for the protectVideo function.
  */
 
-import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const ProtectVideoInputSchema = z.object({
+// Note: These types are used by the API route, not a Genkit flow.
+
+export const ProtectVideoInputSchema = z.object({
   videoDataUri: z
     .string()
     .describe(
@@ -19,39 +20,8 @@ const ProtectVideoInputSchema = z.object({
 });
 export type ProtectVideoInput = z.infer<typeof ProtectVideoInputSchema>;
 
-const ProtectVideoOutputSchema = z.object({
-  processedVideoUri: z.string().describe("The data URI of the processed video."),
+export const ProtectVideoOutputSchema = z.object({
+  hash: z.string().describe("The SHA-256 hash of the video."),
 });
 export type ProtectVideoOutput = z.infer<typeof ProtectVideoOutputSchema>;
-
-
-export async function protectVideo(input: ProtectVideoInput): Promise<ProtectVideoOutput> {
-  return protectVideoFlow(input);
-}
-
-
-const protectVideoFlow = ai.defineFlow(
-  {
-    name: 'protectVideoFlow',
-    inputSchema: ProtectVideoInputSchema,
-    outputSchema: ProtectVideoOutputSchema,
-  },
-  async (input) => {
-    // TODO: Implement video processing logic here.
-    // 1. Decode video into frames
-    // 2. For each frame:
-    //    a. Apply AI shielding
-    //    b. Embed invisible watermark
-    // 3. Re-encode frames into a video
-    // 4. Return the new video data URI
-
-    // For now, we will return a placeholder.
-    console.log("Video processing flow started. NOTE: Full implementation is pending.");
-
-    return {
-      processedVideoUri: input.videoDataUri, // Returning original for now
-    };
-  }
-);
-
     

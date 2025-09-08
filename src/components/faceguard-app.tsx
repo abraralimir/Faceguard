@@ -6,10 +6,8 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, AlertCircle } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription as AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 type ProtectionType = "image" | "video";
@@ -25,7 +23,7 @@ export function FaceGuardApp() {
   const [protectionType, setProtectionType] = useState<ProtectionType>("image");
   const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
   const [processedVideoUri, setProcessedVideoUri] = useState<string | null>(null);
-  const [imageHash, setImageHash] = useState<string | null>(null);
+  const [fileHash, setFileHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('protected_file');
 
@@ -51,7 +49,7 @@ export function FaceGuardApp() {
     setAppState("idle");
     setProcessedImageUri(null);
     setProcessedVideoUri(null);
-    setImageHash(null);
+    setFileHash(null);
     setError(null);
     if(filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl)
@@ -67,7 +65,7 @@ export function FaceGuardApp() {
     resetState();
     if (selectedFile) {
       setFile(selectedFile);
-      setFileName(selectedFile.name);
+      setFileName(selectedFile.name.split('.')[0]);
       setAppState("file-loaded");
     } else {
       setAppState("idle");
@@ -99,7 +97,7 @@ export function FaceGuardApp() {
 
         const data = await response.json();
         setProcessedImageUri(data.processedImageUri);
-        setImageHash(data.hash);
+        setFileHash(data.hash);
         setAppState("success");
       };
       reader.onerror = () => {
@@ -142,6 +140,7 @@ export function FaceGuardApp() {
 
         const data = await response.json();
         setProcessedVideoUri(data.processedVideoUri);
+        setFileHash(data.hash)
         setAppState("success");
       };
       reader.onerror = () => {
@@ -208,8 +207,8 @@ export function FaceGuardApp() {
   };
   
   const copyToClipboard = () => {
-    if (imageHash) {
-      navigator.clipboard.writeText(imageHash);
+    if (fileHash) {
+      navigator.clipboard.writeText(fileHash);
       toast({
         title: "Copied to clipboard!",
         description: "The SHA-256 hash has been copied.",
@@ -258,7 +257,7 @@ export function FaceGuardApp() {
             <p className="text-sm text-muted-foreground">{file?.name}</p>
              <div className="flex gap-4 pt-4">
               <Button variant="outline" onClick={resetState}>Clear</Button>
-              <Button onClick={handleProcessVideo} className="bg-primary hover:bg-primary/90 text-primary-foreground">Protect Video</Button>
+              <Button onClick={handleProcessVideo} className="bg-primary hover:bg-primary/90 text-primary-foreground">Register Video</Button>
             </div>
         </div>
       );
@@ -272,76 +271,93 @@ export function FaceGuardApp() {
         <ShieldCheck className="w-24 h-24 text-primary/30" />
         <ShieldCheck className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
       </div>
-      <p className="text-lg font-medium mt-4">Protecting your {protectionType}...</p>
+      <p className="text-lg font-medium mt-4">
+        {protectionType === 'video' ? 'Registering your video...' : `Protecting your ${protectionType}...`}
+      </p>
       <p className="text-sm text-muted-foreground">
         {protectionType === 'video'
-          ? 'This may take several minutes depending on the video length.'
+          ? 'Calculating unique cryptographic hash.'
           : 'Applying shield, watermarking, and signing receipt.'}
       </p>
     </div>
   );
 
-  const renderImageSuccessState = () => (
-    processedImageUri && imageHash && (
-      <div className="flex flex-col items-center gap-6 text-center">
-        <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
-        <h2 className="text-2xl font-bold">Your Image is Protected!</h2>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a href={processedImageUri} download={`protected_${fileName}`}>
-            <Button>
-              <Download />
-              Download
-            </Button>
-          </a>
-          <Button onClick={handleShare} variant="secondary">
-            <Share2 />
-            Share
-          </Button>
-          <Button variant="outline" onClick={resetState}>
-            <RefreshCw />
-            Protect Another
-          </Button>
-        </div>
-        
-        <Card className="w-full bg-background/50 mt-4 border-white/10">
-          <CardHeader>
-            <CardTitle className="text-lg">Proof of Protection</CardTitle>
-            <CardDescription>SHA-256 hash of your protected image.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-              <code className="font-code text-sm break-all flex-1 text-left">{imageHash}</code>
-              <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
-                <Copy className="h-4 w-4" />
+  const renderSuccessState = () => {
+    if (protectionType === 'image' && processedImageUri && fileHash) {
+      return (
+        <div className="flex flex-col items-center gap-6 text-center">
+          <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
+          <h2 className="text-2xl font-bold">Your Image is Protected!</h2>
+          <div className="flex flex-wrap justify-center gap-4">
+            <a href={processedImageUri} download={`protected_${fileName}.jpg`}>
+              <Button>
+                <Download />
+                Download
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  );
-
-  const renderVideoSuccessState = () => (
-    processedVideoUri && (
-      <div className="flex flex-col items-center gap-6 text-center">
-        <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
-        <h2 className="text-2xl font-bold">Your Video is Protected!</h2>
-         <Alert variant="default" className="bg-primary/10 border-primary/20 text-foreground">
-              <AlertCircle className="h-4 w-4 !text-primary" />
-              <AlertTitle>Coming Soon!</AlertTitle>
-              <AlertDescription>
-                Full video protection is currently in development. We're working hard to bring this powerful feature to FaceGuard. This is a placeholder for now.
-              </AlertDescription>
-         </Alert>
-        <div className="flex flex-wrap justify-center gap-4">
-          <Button variant="outline" onClick={resetState}>
-            <RefreshCw />
-            Protect Another
-          </Button>
+            </a>
+            <Button onClick={handleShare} variant="secondary">
+              <Share2 />
+              Share
+            </Button>
+            <Button variant="outline" onClick={resetState}>
+              <RefreshCw />
+              Protect Another
+            </Button>
+          </div>
+          
+          <Card className="w-full bg-background/50 mt-4 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-lg">Proof of Protection</CardTitle>
+              <CardDescription>SHA-256 hash of your protected image.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                <code className="font-code text-sm break-all flex-1 text-left">{fileHash}</code>
+                <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-    )
-  );
+      )
+    }
+    if (protectionType === 'video' && processedVideoUri && fileHash) {
+      return (
+        <div className="flex flex-col items-center gap-6 text-center">
+          <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
+          <h2 className="text-2xl font-bold">Your Video is Registered!</h2>
+          <div className="flex flex-wrap justify-center gap-4">
+             <a href={processedVideoUri} download={`${fileName}.mp4`}>
+                <Button>
+                  <Download />
+                  Download Original
+                </Button>
+              </a>
+            <Button variant="outline" onClick={resetState}>
+              <RefreshCw />
+              Register Another
+            </Button>
+          </div>
+           <Card className="w-full bg-background/50 mt-4 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-lg">Proof of Authenticity</CardTitle>
+              <CardDescription>SHA-256 hash of your original video.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                <code className="font-code text-sm break-all flex-1 text-left">{fileHash}</code>
+                <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+    return null;
+  }
 
   const renderErrorState = () => (
     <div className="text-center text-destructive p-8">
@@ -360,9 +376,7 @@ export function FaceGuardApp() {
       case 'processing':
         return renderProcessingState();
       case 'success':
-        if (protectionType === 'image') return renderImageSuccessState();
-        if (protectionType === 'video') return renderVideoSuccessState();
-        return null;
+        return renderSuccessState();
       case 'error':
         return renderErrorState();
       default:
@@ -377,7 +391,7 @@ export function FaceGuardApp() {
         <Tabs value={protectionType} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-b-none rounded-t-lg">
             <TabsTrigger value="image">Image Protection</TabsTrigger>
-            <TabsTrigger value="video">Video Protection</TabsTrigger>
+            <TabsTrigger value="video">Video Registration</TabsTrigger>
           </TabsList>
           <TabsContent value="image" className="p-6 min-h-[450px] flex items-center justify-center m-0">
              {renderContent()}
@@ -390,5 +404,4 @@ export function FaceGuardApp() {
     </Card>
   );
 }
-
     
