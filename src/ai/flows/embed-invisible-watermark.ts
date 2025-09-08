@@ -6,6 +6,7 @@ import Jimp from 'jimp';
  * This version distributes the watermark bits across different color channels
  * and pixel locations based on a secret key (the receipt seed) to make it
  * more resistant to compression and simple filtering. It also uses a clear
+
  * signature and error-checking bits.
  */
 export async function embedInvisibleWatermark(
@@ -47,6 +48,10 @@ export async function embedInvisibleWatermark(
 
   const usedIndices = new Set<number>();
   let bitIndex = 0;
+
+  image.scan(0, 0, width, height, (x, y, idx) => {
+      // This function is called for each pixel. We'll handle bit embedding inside the loop.
+  });
 
   while(bitIndex < watermarkBinary.length) {
     // Pick a random pixel and channel that hasn't been used yet
