@@ -14,27 +14,14 @@ const STRENGTHS = {
  * This version is tuned to be nearly imperceptible to the human eye.
  * 1. High-Frequency Dithered Noise: A very fine, structured pattern to disrupt local features.
  * 2. Subtle Chromatic Aberration: A minimal color channel shift.
- * 3. Fluid Transparent Watermark: An almost invisible text warning.
  */
 export async function applyAiShielding(
-  inputBuffer: Buffer,
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  channels: number,
   seed: string
-): Promise<Buffer> {
-  const image = sharp(inputBuffer);
-  const metadata = await image.metadata();
-  const { width, height } = metadata;
-
-  if (!width || !height) {
-    throw new Error('Could not determine image dimensions.');
-  }
-
-  // --- Step 1: Get the raw pixel data for manipulation ---
-  const { data, info } = await image
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const pixels = new Uint8ClampedArray(data);
-  const { channels } = info;
+): Promise<void> {
   const strength = STRENGTHS['strong']; // Always use strong
 
   // --- Seeded PRNG for deterministic randomness ---
@@ -62,25 +49,87 @@ export async function applyAiShielding(
     const shiftedPixels = new Uint8ClampedArray(pixels); // Work on a copy
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-          const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
-          const bIndex = (y * width + Math.max(0, x - shift)) * channels;
-          const gIndex = (y * width + x) * channels;
+        const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
+        const bIndex = (y * width + Math.max(0, x - shift)) * channels;
+        const gIndex = (y * width + x) * channels;
 
-          pixels[gIndex] = shiftedPixels[rIndex];
-          pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
-          pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
+        pixels[gIndex] = shiftedPixels[rIndex];
+        pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
+        pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
       }
     }
   }
+}
 
-  // --- Rebuild the image from perturbed pixels ---
-  return sharp(Buffer.from(pixels), {
-    raw: {
-      width,
-      height,
-      channels,
-    },
-  }).toBuffer();
+/**
+ * Embed a robust invisible watermark using a more advanced LSB technique.
+ * This function directly manipulates the pixel buffer.
+ */
+export function embedInvisibleWatermark(
+    pixels: Uint8ClampedArray,
+    width: number,
+    height: number,
+    receipt: Record<string, any>
+): void {
+    const signature = 'FG-WARN'; // FaceGuard Warning Signal
+    const warning = 'FACEGUARD_DO_NOT_EDIT_OR_MANIPULATE';
+    // Use a placeholder if final_sha256 isn't ready yet.
+    const hashPayload = (receipt.final_sha256 && receipt.final_sha256 !== 'pending')
+      ? receipt.final_sha256.substring(0, 16)
+      : '0'.repeat(16);
+  
+    const payload = `${receipt.seed}::${hashPayload}`;
+    const watermarkText = `${signature}::${warning}::${payload}`;
+  
+    let watermarkBinary = '';
+    for (let i = 0; i < watermarkText.length; i++) {
+      watermarkBinary += watermarkText[i].charCodeAt(0).toString(2).padStart(8, '0');
+    }
+    // Add a simple checksum (sum of char codes modulo 256)
+    const checksum = watermarkText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 256;
+    watermarkBinary += checksum.toString(2).padStart(8, '0');
+  
+    const totalPixels = width * height;
+    if (watermarkBinary.length > totalPixels * 3) {
+      console.warn("Image too small to hold watermark. Skipping watermarking.");
+      return; // Skip if image is too small
+    }
+  
+    // Use the receipt seed to create a pseudo-random sequence of pixel locations
+    let seedValue = 0;
+    for (let i = 0; i < receipt.seed.length; i++) {
+      seedValue = (seedValue + receipt.seed.charCodeAt(i) * (i + 1)) % 100000;
+    }
+    const seededRandom = () => {
+      const x = Math.sin(seedValue++) * 100000;
+      return x - Math.floor(x);
+    };
+  
+    const usedIndices = new Set<number>();
+    let bitIndex = 0;
+  
+    while(bitIndex < watermarkBinary.length) {
+      const pixelNum = Math.floor(seededRandom() * totalPixels);
+      const channelNum = Math.floor(seededRandom() * 3); // R, G, or B
+      const uniqueIndex = pixelNum * 3 + channelNum;
+  
+      if (usedIndices.has(uniqueIndex)) {
+        continue;
+      }
+  
+      const pixelIdx = pixelNum * 4; // Assuming 4 channels (RGBA) from sharp
+      const channelIdx = pixelIdx + channelNum;
+  
+      if (channelIdx >= pixels.length) {
+          continue;
+      }
+      
+      const bit = parseInt(watermarkBinary[bitIndex], 2);
+      pixels[channelIdx] = (pixels[channelIdx] & 0xFE) | bit;
+  
+      usedIndices.add(uniqueIndex);
+      bitIndex++;
+    }
 }
 
 
