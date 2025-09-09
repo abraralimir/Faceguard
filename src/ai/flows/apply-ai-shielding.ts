@@ -65,12 +65,12 @@ export async function applyAiShielding(
  * Embed a robust invisible watermark using a more advanced LSB technique.
  * This function directly manipulates the pixel buffer.
  */
-export function embedInvisibleWatermark(
+export async function embedInvisibleWatermark(
     pixels: Uint8ClampedArray,
     width: number,
     height: number,
     receipt: Record<string, any>
-): void {
+): Promise<void> {
     const signature = 'FG-WARN'; // FaceGuard Warning Signal
     const warning = 'FACEGUARD_DO_NOT_EDIT_OR_MANIPULATE';
     // Use a placeholder if final_sha256 isn't ready yet.
