@@ -9,7 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {Part} from '@genkit-ai/googleai';
+
 
 export const FaceDetectionInputSchema = z.object({
   photoDataUri: z
@@ -71,7 +71,7 @@ const detectFacesFlow = ai.defineFlow(
 
     const {output} = await model.generate({
         prompt: [
-            Part.fromDataUri(input.photoDataUri)
+            { media: { url: input.photoDataUri } }
         ]
     });
     
@@ -89,5 +89,3 @@ const detectFacesFlow = ai.defineFlow(
     return { detections: [] };
   }
 );
-
-    
