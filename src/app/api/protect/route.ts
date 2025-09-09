@@ -88,7 +88,7 @@ async function applyVisibleWatermark(image: sharp.Sharp): Promise<Buffer> {
     const svgWatermark = `
     <svg width="${width}" height="${height}">
       <style>
-      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: "Source Code Pro", monospace; text-anchor: middle; dominant-baseline: middle; }
+      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: monospace; text-anchor: middle; dominant-baseline: middle; }
       </style>
       <text x="50%" y="50%" class="title" transform="rotate(-15, ${width/2}, ${height/2})">${watermarkText}</text>
     </svg>
