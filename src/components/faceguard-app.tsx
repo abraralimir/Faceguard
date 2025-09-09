@@ -61,7 +61,7 @@ export function FaceGuardApp() {
     if (appState === 'processing' && protectionType === 'image') {
       interval = setInterval(() => {
         setCurrentStep(prev => (prev < processingSteps.length - 1 ? prev + 1 : prev));
-      }, 2500); // Increased duration for more steps
+      }, 1500); 
     } else {
         setCurrentStep(0);
     }
@@ -324,11 +324,11 @@ export function FaceGuardApp() {
                     <div className="flex items-center justify-center w-6 h-6">
                         {index < currentStep ? (
                             <CheckCircle className="w-5 h-5 text-success" />
-                        ) : index === 0 ? (
+                        ) : index === currentStep ? (
                            <Sparkles className="w-5 h-5 text-accent animate-pulse" />
                         ) : (
                            <div className="w-5 h-5 flex items-center justify-center">
-                             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                             <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
                            </div>
                         )}
                     </div>

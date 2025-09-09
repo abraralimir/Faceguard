@@ -9,9 +9,9 @@ export default function Home() {
           FaceGuard
         </h1>
         <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
-          Turn your images and videos into an invisible fortress. FaceGuard applies
-          a state-of-the-art defense to make your photos unintelligible to AI,
-          and registers your videos with an unforgeable cryptographic hash.
+          Turn your images and videos into an invisible fortress. FaceGuard enhances
+          your photos, applies a state-of-the-art defense to make them 
+          unintelligible to AI, and registers your videos with an unforgeable cryptographic hash.
         </p>
       </div>
 
