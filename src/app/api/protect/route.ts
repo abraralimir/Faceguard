@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
-import { protectImage } from '@/ai/flows/protect-image-flow';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'SASHA'; // Your specified owner ID
@@ -283,34 +282,23 @@ export async function POST(req: NextRequest) {
     const seed = deriveSeed();
     const timestamp = Date.now();
     
-    // --- STAGE 1: AI-Powered Protection ---
-    const aiProtectionResult = await protectImage({ photoDataUri: imageDataUri });
-    const aiProtectedBase64Data = aiProtectionResult.protectedPhotoDataUri.split(',')[1];
-    const aiProtectedImageBuffer = Buffer.from(aiProtectedBase64Data, 'base64');
-
-
-    // --- Get raw pixel data from original image for score calculation ---
-    const { data: originalPixels } = await sharp(originalImageBuffer)
+    // --- Get raw pixel data from original image for score calculation & processing ---
+    const { data: originalPixels, info } = await sharp(originalImageBuffer)
         .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
-
-    // --- Get raw pixel data from AI-protected image for further processing ---
-    const sharpInstance = sharp(aiProtectedImageBuffer);
-    const { data: shieldedPixels, info } = await sharpInstance
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-    const { width, height, channels } = info;
     
-    // --- STAGE 2: Apply Aggressive AI Shielding ---
+    const { width, height, channels } = info;
+    const shieldedPixels = Buffer.from(originalPixels);
+    
+    // --- STAGE 1: Apply Aggressive AI Shielding ---
     await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
 
     // --- Create a temporary shielded image to calculate the hash for the watermark ---
     const tempShieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
     const finalHashForWatermark = sha256(tempShieldedImageForHash);
 
-    // --- STAGE 3: Create and Embed Watermark ---
+    // --- STAGE 2: Create and Embed Watermark ---
     const receipt: Record<string, any> = {
       version: '7.0_gold_standard_dual_layer',
       owner: OWNER_ID,
@@ -326,7 +314,7 @@ export async function POST(req: NextRequest) {
     
     await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
 
-    // --- STAGE 4: Finalize and Sign ---
+    // --- STAGE 3: Finalize and Sign ---
     const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
         .jpeg({ quality: 95, mozjpeg: true })
         .toBuffer();

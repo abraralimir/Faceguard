@@ -21,7 +21,6 @@ const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
 const processingSteps = [
-  "Applying Genkit AI protection layer...",
   "Applying multi-layered AI shield...",
   "Calculating protection score...",
   "Embedding invisible watermark...",
