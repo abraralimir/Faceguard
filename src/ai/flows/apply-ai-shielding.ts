@@ -76,52 +76,21 @@ export async function applyVisibleWatermark(
         throw new Error('Could not determine image dimensions.');
     }
 
-    const watermarkText = "WARNING DO NOT EDIT THIS IMAGE THIS IMAGE HAVE COPYRIGHTS OF SASHA";
-    const fontSize = Math.max(12, Math.round(width / 50)); // Responsive font size
-    const svgWatermarkBase = `
+    const watermarkText = "Protected by FaceGuard";
+    const fontSize = Math.max(12, Math.round(width / 40)); // Responsive font size
+    const svgWatermark = `
     <svg width="${width}" height="${height}">
-      <text
-        dominant-baseline="middle"
-        text-anchor="middle"
-        font-family="Arial, sans-serif"
-        font-size="${fontSize}"
-        font-weight="bold"
-        style="transform: rotate(-15deg);"
-        fill="{color}"
-        opacity="{opacity}"
-        x="{x}"
-        y="{y}"
-      >
-        ${watermarkText}
-      </text>
+      <style>
+      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: Arial, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+      </style>
+      <text x="50%" y="50%" class="title" transform="rotate(-15, ${width/2}, ${height/2})">${watermarkText}</text>
     </svg>
   `;
-
-  const watermarkOpacity = 0.05;
   
-  // Create two layers for an embossed effect, more detectable by AI
-  const watermarkWhite = Buffer.from(
-      svgWatermarkBase
-        .replace('{color}', 'white')
-        .replace('{opacity}', String(watermarkOpacity))
-        .replace('{x}', '50.1%')
-        .replace('{y}', '50.1%')
-  );
-
-  const watermarkBlack = Buffer.from(
-      svgWatermarkBase
-        .replace('{color}', 'black')
-        .replace('{opacity}', String(watermarkOpacity))
-        .replace('{x}', '50%')
-        .replace('{y}', '50%')
-  );
-
-
   // --- Composite the watermark over the perturbed image ---
   return image
     .composite([
-        { input: watermarkBlack, tile: false, blend: 'over' },
-        { input: watermarkWhite, tile: false, blend: 'over' }
+        { input: Buffer.from(svgWatermark), tile: false, blend: 'over' },
     ])
     .jpeg({ quality: 98, mozjpeg: true }) // Use very high quality to preserve subtlety
     .toBuffer();
