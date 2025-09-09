@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
-import { detectFaces, FaceDetection } from '@/ai/flows/detect-faces';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'SASHA'; // Your specified owner ID
@@ -282,10 +281,7 @@ export async function POST(req: NextRequest) {
 
     const seed = deriveSeed();
     const timestamp = Date.now();
-
-    // --- Step 1: Detect Faces ---
-    const faces = await detectFaces({ photoDataUri: imageDataUri });
-
+    
     // --- Get raw pixel data from original image ---
     const sharpInstance = sharp(originalImageBuffer);
     const { data: originalPixels, info } = await sharpInstance
@@ -297,38 +293,16 @@ export async function POST(req: NextRequest) {
     // --- Create a mutable clone for processing ---
     const shieldedPixels = Buffer.from(originalPixels);
     
-    // --- Step 2: Apply Aggressive AI Shielding to entire image ---
+    // --- Step 1: Apply Aggressive AI Shielding to entire image ---
     await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
 
-    // --- Step 3: Apply EXTRA aggressive shielding to detected faces ---
-    if (faces && faces.detections.length > 0) {
-      console.log(`Detected ${faces.detections.length} faces. Applying targeted protection.`);
-      for (const face of faces.detections) {
-          const { x, y, w, h } = face;
-          // Extract the face region
-          const faceBuffer = await sharp(shieldedPixels, { raw: { width, height, channels }})
-              .extract({ left: x, top: y, width: w, height: h })
-              .raw()
-              .toBuffer();
-          
-          // Apply super aggressive shielding to the face region
-          await applyAiShielding(faceBuffer, w, h, channels, seed + 'face', 'high');
-          
-          // Composite the hyper-protected face back onto the main image
-          await sharp(shieldedPixels, { raw: { width, height, channels }})
-              .composite([{ input: faceBuffer, left: x, top: y, raw: { width: w, height: h, channels: channels } }])
-              .toBuffer()
-              .then(b => b.copy(shieldedPixels));
-      }
-    }
-    
-    // --- Step 4: Calculate Protection Score ---
+    // --- Step 2: Calculate Protection Score ---
     const protectionScore = calculateProtectionScore(
       new Uint8ClampedArray(originalPixels),
       new Uint8ClampedArray(shieldedPixels)
     );
     
-    // --- Step 5: Create the initial receipt (hash is pending) ---
+    // --- Step 3: Create the initial receipt (hash is pending) ---
     const receipt: Record<string, any> = {
       version: '6.0_revolutionary_face_aware',
       owner: OWNER_ID,
@@ -338,12 +312,12 @@ export async function POST(req: NextRequest) {
       public_key: publicKeyHex,
       protection_level: 'aggressive',
       protection_score: protectionScore,
-      faces_detected: faces?.detections?.length || 0,
+      faces_detected: 0,
       final_sha256: 'pending',
       signature: 'pending',
     };
     
-    // --- Step 6: Embed Invisible Watermark ---
+    // --- Step 4: Embed Invisible Watermark ---
     // First, calculate the final hash of the shielded-only image to embed it
     const shieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
     receipt.final_sha256 = sha256(shieldedImageForHash);
@@ -351,12 +325,12 @@ export async function POST(req: NextRequest) {
     // Now, embed the watermark with the complete receipt info
     await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
 
-    // --- Step 7: Convert final pixels (shielded + watermarked) to image buffer ---
+    // --- Step 5: Convert final pixels (shielded + watermarked) to image buffer ---
     const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
         .jpeg({ quality: 95, mozjpeg: true })
         .toBuffer();
     
-    // --- Step 8: Recalculate hash for the *final* outputted file and sign ---
+    // --- Step 6: Recalculate hash for the *final* outputted file and sign ---
     receipt.final_sha256 = sha256(finalImageBytes);
     receipt.signature = signPayload(receipt);
 
@@ -368,7 +342,7 @@ export async function POST(req: NextRequest) {
       hash: receipt.final_sha256,
       receipt: receipt,
       protectionScore,
-      facesDetected: faces?.detections?.length > 0
+      facesDetected: false
     });
 
   } catch (error) {
@@ -380,5 +354,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-    
