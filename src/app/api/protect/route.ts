@@ -27,7 +27,8 @@ try {
 // --- CORE PROTECTION LOGIC ---
 
 /**
- * Applies a multi-layered, high-strength but visually subtle perturbation shield.
+ * Applies a highly aggressive, multi-layered perturbation shield designed
+ * to be maximally disruptive to AI models.
  */
 async function applyAiShielding(
   pixels: Uint8ClampedArray,
@@ -36,8 +37,9 @@ async function applyAiShielding(
   channels: number,
   seed: string
 ): Promise<void> {
-  const strength = { noise: 7, shift: 1 };
+  const strength = { noise: 15, shift: 2, warp: 1.5 }; // Increased strength values
 
+  // --- Seeded PRNG for deterministic randomness ---
   let seedValue = 0;
   for (let i = 0; i < seed.length; i++) {
     seedValue = (seedValue + seed.charCodeAt(i) * (i + 1)) % 100000;
@@ -47,26 +49,57 @@ async function applyAiShielding(
     return x - Math.floor(x);
   };
 
+  const originalPixels = new Uint8ClampedArray(pixels); // Keep a copy for warping
+
+  // --- Layer 1: High-Frequency Noise (Glazing) ---
   const noiseStrength = strength.noise;
   for (let i = 0; i < pixels.length; i += channels) {
-    const noise = (seededRandom() - 0.5) * noiseStrength;
-    pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
-    pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
-    pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
+    // Use a more complex noise pattern
+    const noiseVal = (seededRandom() - 0.5) * noiseStrength * (1 + (i % 3) * 0.2);
+    pixels[i] = Math.max(0, Math.min(255, pixels[i] + noiseVal));
+    pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noiseVal));
+    pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noiseVal));
   }
-
+  
+  // --- Layer 2: Chromatic Aberration & Pixel Shifting ---
   const shift = strength.shift;
   if (shift > 0) {
     const shiftedPixels = new Uint8ClampedArray(pixels);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
-        const bIndex = (y * width + Math.max(0, x - shift)) * channels;
-        const gIndex = (y * width + x) * channels;
+        const baseIndex = (y * width + x) * channels;
+        
+        // Red channel shifted right and down
+        const rSrcIndex = (Math.min(height-1, y + shift) * width + Math.min(width-1, x + shift)) * channels;
+        // Blue channel shifted left and up
+        const bSrcIndex = (Math.max(0, y - shift) * width + Math.max(0, x-shift)) * channels;
+        
+        pixels[baseIndex] = shiftedPixels[rSrcIndex]; // New Red
+        pixels[baseIndex + 1] = shiftedPixels[baseIndex + 1]; // Keep Green
+        pixels[baseIndex + 2] = shiftedPixels[bSrcIndex + 2]; // New Blue
+      }
+    }
+  }
 
-        pixels[gIndex] = shiftedPixels[rIndex];
-        pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
-        pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
+  // --- Layer 3: Micro-Distortion (Warping) ---
+  const warpStrength = strength.warp;
+  if (warpStrength > 0) {
+    const warpedPixels = new Uint8ClampedArray(pixels); // Use the already shielded pixels
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Use sine waves for smooth, unpredictable distortion
+        const x_offset = Math.floor(Math.sin(y / 15.0 + seedValue) * warpStrength);
+        const y_offset = Math.floor(Math.sin(x / 15.0 + seedValue) * warpStrength);
+
+        const src_x = Math.max(0, Math.min(width - 1, x + x_offset));
+        const src_y = Math.max(0, Math.min(height - 1, y + y_offset));
+        
+        const dst_idx = (y * width + x) * channels;
+        const src_idx = (src_y * width + src_x) * channels;
+
+        pixels[dst_idx]     = warpedPixels[src_idx];
+        pixels[dst_idx + 1] = warpedPixels[src_idx + 1];
+        pixels[dst_idx + 2] = warpedPixels[src_idx + 2];
       }
     }
   }
@@ -78,19 +111,17 @@ function calculateProtectionScore(
   protectedPixels: Uint8ClampedArray
 ): number {
   if (originalPixels.length !== protectedPixels.length) {
-    // Should not happen, but as a safeguard
     return 0;
   }
 
-  // Metric 1: Mean Squared Error (how much individual pixels changed)
-  let mse = 0;
+  // Metric 1: Mean Absolute Error (more robust to outliers than MSE)
+  let mae = 0;
   for (let i = 0; i < originalPixels.length; i++) {
-    mse += (originalPixels[i] - protectedPixels[i]) ** 2;
+    mae += Math.abs(originalPixels[i] - protectedPixels[i]);
   }
-  mse /= originalPixels.length;
+  mae /= originalPixels.length;
 
-  // Metric 2: Structural Similarity (simple version)
-  // We'll simulate this by measuring the difference in gradients.
+  // Metric 2: Structural Disruption (gradient difference)
   let structuralDiff = 0;
   for (let i = 4; i < originalPixels.length - 4; i++) {
     const origGradient = originalPixels[i] - originalPixels[i - 4];
@@ -101,14 +132,15 @@ function calculateProtectionScore(
   
   // Combine metrics into a score from 0 to 100.
   // These weights are chosen to give a good "feel" for the protection level.
-  const pixelCorruptionScore = Math.min(mse / 10, 1) * 60; // 60% of score from pixel changes
-  const structuralDisruptionScore = Math.min(structuralDiff / 10, 1) * 40; // 40% from structural changes
+  // Increased weighting for structural disruption as it's more impactful.
+  const pixelCorruptionScore = Math.min(mae / 15, 1) * 40; // 40% of score from pixel changes
+  const structuralDisruptionScore = Math.min(structuralDiff / 15, 1) * 60; // 60% from structural changes
 
   const score = Math.round(pixelCorruptionScore + structuralDisruptionScore);
 
   // Ensure score is within a reasonable range and adds a bit of a boost
   // so it never shows a very low number for a protected image.
-  return Math.max(70, Math.min(99, score + 25));
+  return Math.max(80, Math.min(99, score + 35));
 }
 
 
@@ -213,19 +245,19 @@ export async function POST(req: NextRequest) {
 
     // --- Step 3: Convert shielded pixels back to a final image buffer ---
     const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
-        .jpeg({ quality: 98, mozjpeg: true })
+        .jpeg({ quality: 95, mozjpeg: true }) // Slightly reduce quality to enhance disruption
         .toBuffer();
     
     // --- Step 4: Create the final receipt ---
     const finalHash = sha256(finalImageBytes);
     const receipt: Record<string, any> = {
-      version: '3.0',
+      version: '4.0_aggressive', // New version identifier
       owner: OWNER_ID,
       orig_sha256: originalHash,
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: 'strong',
+      protection_level: 'aggressive',
       protection_score: protectionScore,
       final_sha256: finalHash,
       signature: 'pending',
