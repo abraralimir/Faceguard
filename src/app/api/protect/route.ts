@@ -66,7 +66,7 @@ async function applyAiShielding(
   const shift = strength.shift;
   if (shift > 0) {
     const shiftedPixels = Buffer.from(pixels); // Create a copy
-    for (let y = 0; < height; y++) {
+    for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const baseIndex = (y * width + x) * channels;
         const rSrcIndex = (Math.min(height-1, y + shift) * width + Math.min(width-1, x + shift)) * channels;
@@ -291,7 +291,7 @@ export async function POST(req: NextRequest) {
     const { data: originalPixels, info } = await sharpInstance
         .ensureAlpha() // Ensure 4 channels for consistency
         .raw()
-        toBuffer({ resolveWithObject: true });
+        .toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
     
     // --- Create a mutable clone for processing ---
