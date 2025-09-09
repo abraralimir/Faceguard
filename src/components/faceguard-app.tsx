@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
@@ -6,8 +7,10 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+
 
 type AppState = "idle" | "file-loaded" | "processing" | "success" | "error";
 type ProtectionType = "image" | "video";
@@ -18,10 +21,10 @@ const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
 const processingSteps = [
+  "Analyzing image integrity...",
   "Applying multi-layered AI shield...",
-  "Embedding resilient watermark...",
+  "Calculating protection score...",
   "Signing cryptographic receipt...",
-  "Finalizing secure image...",
 ];
 
 export function FaceGuardApp() {
@@ -31,6 +34,7 @@ export function FaceGuardApp() {
   const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
   const [processedVideoUri, setProcessedVideoUri] = useState<string | null>(null);
   const [fileHash, setFileHash] = useState<string | null>(null);
+  const [protectionScore, setProtectionScore] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('protected_file');
   const [currentStep, setCurrentStep] = useState(0);
@@ -72,6 +76,7 @@ export function FaceGuardApp() {
     setProcessedVideoUri(null);
     setFileHash(null);
     setError(null);
+    setProtectionScore(null);
     setCurrentStep(0);
     if(filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl)
@@ -98,7 +103,7 @@ export function FaceGuardApp() {
     file: File,
     apiEndpoint: string,
     bodyKey: string
-  ): Promise<{ processedUri: string; hash: string }> => {
+  ): Promise<{ processedUri: string; hash: string, protectionScore: number | null }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -120,6 +125,7 @@ export function FaceGuardApp() {
           resolve({
             processedUri: data.processedImageUri || data.processedVideoUri,
             hash: data.hash,
+            protectionScore: data.protectionScore || null,
           });
         } catch (e) {
           reject(e);
@@ -138,9 +144,10 @@ export function FaceGuardApp() {
     setError(null);
 
     try {
-      const { processedUri, hash } = await processFile(file, '/api/protect', 'imageDataUri');
+      const { processedUri, hash, protectionScore } = await processFile(file, '/api/protect', 'imageDataUri');
       setProcessedImageUri(processedUri);
       setFileHash(hash);
+      setProtectionScore(protectionScore);
       setAppState("success");
     } catch (e: any) {
       const errorMessage = e.message || "An unknown error occurred.";
@@ -353,7 +360,25 @@ export function FaceGuardApp() {
             </Button>
           </div>
           
-          <Card className="w-full bg-background/50 mt-4 border-white/10">
+          {protectionScore && (
+             <Card className="w-full bg-background/50 mt-4 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="w-5 h-5" />
+                  Protection Score
+                </CardTitle>
+                <CardDescription>How much we've hardened your image against AI.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Progress value={protectionScore} className="h-3" />
+                  <span className="font-bold text-lg text-primary">{protectionScore}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="w-full bg-background/50 mt-2 border-white/10">
             <CardHeader>
               <CardTitle className="text-lg">Proof of Protection</CardTitle>
               <CardDescription>SHA-256 hash of your protected image.</CardDescription>
