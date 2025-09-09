@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { 
     applyAiShielding, 
-    embedInvisibleWatermark,
     applyVisibleWatermark 
 } from '@/ai/flows/apply-ai-shielding';
 import { createHash, randomBytes, createHmac } from 'crypto';
@@ -130,7 +129,14 @@ export async function POST(req: NextRequest) {
     // --- Step 1: Apply Multi-Layered AI Shielding (in-place) ---
     await applyAiShielding(pixels, width, height, channels, seed);
 
-    // --- Step 2: Create the initial receipt (to be embedded) ---
+    // --- Build the processed image buffer from the shielded pixels ---
+    const shieldedBuffer = await sharp(pixels, { raw: { width, height, channels } }).toBuffer();
+
+    // --- Step 2: Apply the visible watermark ---
+    const finalImageBytes = await applyVisibleWatermark(shieldedBuffer);
+    
+    // --- Step 3: Create the final receipt (to be signed) ---
+    const finalHash = sha256(finalImageBytes);
     const receipt: Record<string, any> = {
       version: '3.0',
       owner: OWNER_ID,
@@ -139,47 +145,13 @@ export async function POST(req: NextRequest) {
       timestamp: timestamp,
       public_key: publicKeyHex,
       protection_level: 'strong',
-      final_sha256: 'pending', // Placeholder
-      signature: 'pending',   // Placeholder
+      final_sha256: finalHash,
+      signature: 'pending', // Placeholder
     };
     
-    // --- Step 3 & 4 (Combined): Embed, Finalize Hash, Sign, Re-Embed ---
-    const processAndSign = async (pixelData: Uint8ClampedArray, firstPass: boolean): Promise<Buffer> => {
-        // Embed the current state of the receipt
-        embedInvisibleWatermark(pixelData, width, height, receipt);
+    // --- Step 4: Sign the completed receipt ---
+    receipt.signature = signPayload(receipt);
 
-        // Rebuild the buffer from pixels
-        const processedBuffer = await sharp(pixelData, { raw: { width, height, channels } }).toBuffer();
-
-        if (firstPass) {
-            // This is the first pass, so we calculate the hash and sign
-            const finalHash = sha256(processedBuffer);
-            receipt.final_sha256 = finalHash;
-            receipt.signature = signPayload(receipt);
-            
-            // Now, do the second pass with the complete receipt
-            // We need to re-read the shielded pixels to avoid re-applying the shield
-            const { data: shieldedPixelsOnly } = await sharp(originalImageBuffer).raw().toBuffer({ resolveWithObject: true });
-            const finalPixels = new Uint8ClampedArray(shieldedPixelsOnly);
-            await applyAiShielding(finalPixels, width, height, channels, seed); // Re-apply shield only
-            return processAndSign(finalPixels, false); // Second pass
-        }
-        
-        // This is the second pass, return the final buffer
-        return processedBuffer;
-    };
-
-    // --- Execute the two-pass process ---
-    const finalInvisiblyWatermarkedBuffer = await processAndSign(pixels, true);
-
-    // --- Final Verification (Optional but Recommended) ---
-    if (sha256(finalInvisiblyWatermarkedBuffer) !== receipt.final_sha256) {
-        console.warn("Verification hash mismatch after final embed. The signature may be invalid.");
-    }
-
-    // --- Step 5: Apply the visible watermark as the very last step ---
-    const finalImageBytes = await applyVisibleWatermark(finalInvisiblyWatermarkedBuffer);
-    
     // --- Final Output ---
     const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
     
