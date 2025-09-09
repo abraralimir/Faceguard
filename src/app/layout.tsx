@@ -5,10 +5,10 @@ import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'FaceGuard: Protect Your Digital Identity',
-  description: 'FaceGuard provides state-of-the-art protection for your images. Apply an invisible, AI-resistant shield and watermark to prevent unauthorized editing, deepfakes, and misuse on social media.',
+  description: 'FaceGuard provides state-of-the-art protection for your images and videos. Apply an AI-resistant shield and get a cryptographic hash to prevent unauthorized use.',
   openGraph: {
     title: 'FaceGuard: Protect Your Digital Identity',
-    description: 'Shield your photos from AI misuse.',
+    description: 'Shield your photos and videos from AI misuse.',
     url: 'https://faceguard-woad.vercel.app/',
     siteName: 'FaceGuard',
     images: [
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'FaceGuard: Protect Your Digital Identity',
-    description: 'Shield your photos from AI misuse.',
+    description: 'Shield your photos and videos from AI misuse.',
     images: ['https://faceguard-woad.vercel.app/og-image.png'],
   },
 };

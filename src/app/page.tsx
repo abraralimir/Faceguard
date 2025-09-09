@@ -21,27 +21,16 @@ export default function Home() {
         <h2 className="text-3xl font-headline font-bold text-foreground mb-10">
           A New Standard in Digital Protection
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           <div className="flex flex-col items-center">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <ShieldAlert className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Multi-Layered AI Shield</h3>
             <p className="text-sm text-muted-foreground">
-              For images, we apply invisible noise and color shifts. This "AI landmine"
+              For images, we apply invisible noise, color shifts, and micro-distortions. This "AI landmine"
               is imperceptible to you but corrupts data for models trying to
               learn from or alter your face.
-            </p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
-              <FileLock2 className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Invisible Watermark</h3>
-            <p className="text-sm text-muted-foreground">
-              A robust, invisible signal is cryptographically embedded across
-              your image, surviving compression, cropping, and filtering to
-              warn against manipulation.
             </p>
           </div>
           <div className="flex flex-col items-center">
