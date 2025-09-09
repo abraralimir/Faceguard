@@ -67,9 +67,8 @@ export async function applyAiShielding(
  * This is designed to be the final step in the protection process.
  */
 export async function applyVisibleWatermark(
-  inputBuffer: Buffer
+  image: sharp.Sharp
 ): Promise<Buffer> {
-    const image = sharp(inputBuffer);
     const metadata = await image.metadata();
     const { width, height } = metadata;
 

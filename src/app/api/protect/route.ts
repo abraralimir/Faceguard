@@ -121,19 +121,20 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // --- Start Unified Processing with Sharp ---
-    const image = sharp(originalImageBuffer);
-    const { data: rawPixels, info } = await image.raw().toBuffer({ resolveWithObject: true });
+    const { data: rawPixels, info } = await sharp(originalImageBuffer)
+        .raw()
+        .toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
     const pixels = new Uint8ClampedArray(rawPixels);
 
     // --- Step 1: Apply Multi-Layered AI Shielding (in-place) ---
     await applyAiShielding(pixels, width, height, channels, seed);
 
-    // --- Build the processed image buffer from the shielded pixels ---
-    const shieldedBuffer = await sharp(pixels, { raw: { width, height, channels } }).toBuffer();
-
-    // --- Step 2: Apply the visible watermark ---
-    const finalImageBytes = await applyVisibleWatermark(shieldedBuffer);
+    // --- Create a new sharp instance with the shielded pixels ---
+    const shieldedImage = sharp(pixels, { raw: { width, height, channels } });
+    
+    // --- Step 2: Apply the visible watermark to the shielded image ---
+    const finalImageBytes = await applyVisibleWatermark(shieldedImage);
     
     // --- Step 3: Create the final receipt (to be signed) ---
     const finalHash = sha256(finalImageBytes);
