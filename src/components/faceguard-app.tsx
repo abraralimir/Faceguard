@@ -7,7 +7,7 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, Cpu } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, Cpu, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -21,8 +21,8 @@ const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
 const processingSteps = [
-  "Applying multi-layered AI shield...",
-  "Calculating protection score...",
+  "Enhancing image quality...",
+  "Applying imperceptible AI shield...",
   "Embedding invisible watermark...",
   "Signing cryptographic receipt...",
 ];
@@ -324,6 +324,8 @@ export function FaceGuardApp() {
                     <div className="flex items-center justify-center w-6 h-6">
                         {index < currentStep ? (
                             <CheckCircle className="w-5 h-5 text-success" />
+                        ) : index === 0 ? (
+                           <Sparkles className="w-5 h-5 text-accent animate-pulse" />
                         ) : (
                            <div className="w-5 h-5 flex items-center justify-center">
                              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -349,7 +351,7 @@ export function FaceGuardApp() {
             <a href={processedImageUri} download={`protected_${fileName}.jpg`}>
               <Button>
                 <Download />
-                Download
+                Download Enhanced Image
               </Button>
             </a>
             <Button onClick={handleShare} variant="secondary">

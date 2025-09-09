@@ -28,20 +28,18 @@ try {
 // --- REVOLUTIONARY PROTECTION LOGIC ---
 
 /**
- * Applies a highly aggressive, multi-layered perturbation shield inspired by
- * Glaze and Nightshade, designed to be maximally disruptive to AI models.
+ * Applies a subtle, multi-layered perturbation shield designed to be
+ * imperceptible to humans but disruptive to AI models.
  */
 async function applyAiShielding(
   pixels: Buffer | Uint8ClampedArray,
   width: number,
   height: number,
   channels: number,
-  seed: string,
-  aggression: 'normal' | 'high' = 'normal'
+  seed: string
 ): Promise<void> {
-  const strength = aggression === 'normal' 
-    ? { noise: 20, shift: 3, warp: 2.0 } 
-    : { noise: 40, shift: 5, warp: 3.0 }; // Higher aggression for faces
+  // Drastically reduced strength for imperceptibility
+  const strength = { noise: 5, shift: 1, warp: 0.5 }; 
 
   // --- Seeded PRNG for deterministic randomness ---
   let seedValue = 0;
@@ -69,8 +67,9 @@ async function applyAiShielding(
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const baseIndex = (y * width + x) * channels;
-        const rSrcIndex = (Math.min(height-1, y + shift) * width + Math.min(width-1, x + shift)) * channels;
-        const bSrcIndex = (Math.max(0, y - shift) * width + Math.max(0, x-shift)) * channels;
+        // Reduced shift to a single pixel to make it invisible
+        const rSrcIndex = (Math.min(height-1, y + shift) * width + x) * channels;
+        const bSrcIndex = (Math.max(0, y - shift) * width + x) * channels;
         pixels[baseIndex] = shiftedPixels[rSrcIndex]; 
         pixels[baseIndex + 1] = shiftedPixels[baseIndex + 1];
         pixels[baseIndex + 2] = shiftedPixels[bSrcIndex + 2];
@@ -84,8 +83,8 @@ async function applyAiShielding(
     const warpedPixels = Buffer.from(pixels); // Create a copy
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const x_offset = Math.floor(Math.sin(y / 12.0 + seedValue) * warpStrength);
-        const y_offset = Math.floor(Math.sin(x / 12.0 + seedValue) * warpStrength);
+        const x_offset = Math.floor(Math.sin(y / 24.0 + seedValue) * warpStrength); // Reduced frequency
+        const y_offset = Math.floor(Math.sin(x / 24.0 + seedValue) * warpStrength); // Reduced frequency
         const src_x = Math.max(0, Math.min(width - 1, x + x_offset));
         const src_y = Math.max(0, Math.min(height - 1, y + y_offset));
         const dst_idx = (y * width + x) * channels;
@@ -96,43 +95,6 @@ async function applyAiShielding(
       }
     }
   }
-}
-
-/**
- * NEW LAYER: Applies subtle JPEG artifact perturbations to confuse models
- * that rely on compression patterns.
- */
-async function applyJpegArtifactPerturbation(imageBuffer: Buffer, seed: string): Promise<Buffer> {
-    const image = await jimp.read(imageBuffer);
-    const width = image.getWidth();
-    const height = image.getHeight();
-
-    // --- Seeded PRNG ---
-    let seedValue = 0;
-    for (let i = 0; i < seed.length; i++) {
-        seedValue = (seedValue + seed.charCodeAt(i) * (i + 2)) % 100000;
-    }
-    const seededRandom = () => {
-        const x = Math.sin(seedValue++) * 100000;
-        return x - Math.floor(x);
-    };
-    
-    // Choose a random small block to re-compress
-    const blockSize = 64;
-    const x = Math.floor(seededRandom() * (width - blockSize));
-    const y = Math.floor(seededRandom() * (height - blockSize));
-
-    const block = image.clone().crop(x, y, blockSize, blockSize);
-
-    // Re-compress this block with a slightly different quality
-    const quality = 85 + Math.floor(seededRandom() * 10); // 85-94
-    const compressedBlockBuffer = await block.quality(quality).getBufferAsync(jimp.MIME_JPEG);
-    const recompressedBlock = await jimp.read(compressedBlockBuffer);
-
-    // Composite the re-compressed block back onto the main image
-    image.composite(recompressedBlock, x, y);
-    
-    return await image.getBufferAsync(jimp.MIME_JPEG);
 }
 
 
@@ -321,56 +283,68 @@ export async function POST(req: NextRequest) {
     const seed = deriveSeed();
     const timestamp = Date.now();
     
-    // --- Get raw pixel data from original image for score calculation & processing ---
-    const { data: originalPixels, info: originalInfo } = await sharp(originalImageBuffer)
+    // --- Get raw pixel data from original image for score calculation ---
+    const { data: originalPixels } = await sharp(originalImageBuffer)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+    // --- STAGE 1: Enhance Image Quality ---
+    const originalMetadata = await sharp(originalImageBuffer).metadata();
+    const enhancedImageBuffer = await sharp(originalImageBuffer)
+      .resize(Math.round(originalMetadata.width! * 1.2), Math.round(originalMetadata.height! * 1.2), {
+        kernel: sharp.kernel.lanczos3, // High quality resampling
+      })
+      .sharpen({ // Apply a gentle sharpening
+        sigma: 0.5,
+        m1: 1,
+        m2: 2,
+        x1: 2,
+        y2: 10,
+        y3: 20,
+      })
+      .toBuffer();
+
+    // --- Process the *enhanced* image from here on ---
+    const { data: shieldedPixels, info: shieldedInfo } = await sharp(enhancedImageBuffer)
         .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
     
-    const { width, height, channels } = originalInfo;
-    const shieldedPixels = Buffer.from(originalPixels);
+    const { width, height, channels } = shieldedInfo;
     
-    // --- STAGE 1: Apply Aggressive AI Shielding ---
-    await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
+    // --- STAGE 2: Apply Imperceptible AI Shielding ---
+    await applyAiShielding(shieldedPixels, width, height, channels, seed);
+    
+    // --- STAGE 3: Embed Watermark ---
+    // Convert shielded pixels back to a buffer to get the hash for the watermark
+    const shieldedImageBufferForWatermark = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
+    const finalHashForWatermark = sha256(shieldedImageBufferForWatermark);
 
-    // --- STAGE 2: JPEG Artifact Perturbation ---
-    // This stage requires converting back and forth from a buffer, which is intended.
-    let shieldedImageBuffer = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
-    shieldedImageBuffer = await applyJpegArtifactPerturbation(shieldedImageBuffer, seed);
-
-    // --- Create a temporary shielded image to calculate the hash for the watermark ---
-    const finalHashForWatermark = sha256(shieldedImageBuffer);
-
-    // --- STAGE 3: Create and Embed Watermark ---
-    // We need to get the raw pixels from the JPEG-perturbed image to apply the watermark
-    const { data: finalShieldedPixels, info: finalInfo } = await sharp(shieldedImageBuffer)
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-      
     const receipt: Record<string, any> = {
-      version: '8.0_gold_standard_quad_layer',
+      version: '9.0_enhanced_subtle_shield',
       owner: OWNER_ID,
       orig_sha256: originalHash,
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: 'gold_standard_plus',
+      protection_level: 'gold_standard_subtle',
       protection_score: 'pending',
       final_sha256: finalHashForWatermark, // Temporarily set hash for watermark
       signature: 'pending',
     };
     
-    await embedInvisibleWatermark(finalShieldedPixels, finalInfo.width, finalInfo.height, receipt);
+    await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
 
     // --- STAGE 4: Finalize and Sign ---
-    const finalImageBytes = await sharp(finalShieldedPixels, { raw: { width: finalInfo.width, height: finalInfo.height, channels: finalInfo.channels } })
-        .jpeg({ quality: 95, mozjpeg: true })
+    const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
+        .jpeg({ quality: 98, mozjpeg: true }) // Higher quality output
         .toBuffer();
     
     // Recalculate hash for the *final* outputted file and calculate score
     receipt.final_sha256 = sha256(finalImageBytes);
     const {data: finalPixels} = await sharp(finalImageBytes).ensureAlpha().raw().toBuffer({resolveWithObject: true});
+    // We compare the final output against the original pixels to measure the total change
     receipt.protection_score = calculateProtectionScore(
       new Uint8ClampedArray(originalPixels),
       new Uint8ClampedArray(finalPixels)
