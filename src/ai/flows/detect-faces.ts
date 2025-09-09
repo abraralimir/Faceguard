@@ -40,6 +40,16 @@ export async function detectFaces(input: FaceDetectionInput): Promise<FaceDetect
 }
 
 
+const faceDetectionTool = ai.defineTool(
+    {
+      name: 'faceDetection',
+      description: 'Detect faces in an image and return their bounding boxes.',
+      inputSchema: FaceDetectionOutputSchema,
+      outputSchema: z.void(),
+    },
+    async () => {} // The tool itself doesn't need to do anything, the model provides the arguments.
+);
+
 const detectFacesFlow = ai.defineFlow(
   {
     name: 'detectFacesFlow',
@@ -50,17 +60,7 @@ const detectFacesFlow = ai.defineFlow(
 
     const model = ai.getModel({
       model: 'googleai/gemini-2.5-flash-image-preview',
-      tools: [
-        ai.defineTool(
-          {
-            name: 'faceDetection',
-            description: 'Detect faces in an image',
-            inputSchema: FaceDetectionOutputSchema,
-            outputSchema: z.void(),
-          },
-          async () => {}
-        ),
-      ],
+      tools: [faceDetectionTool],
       toolConfig: {
         mode: 'required',
         requiredTool: {
@@ -69,24 +69,32 @@ const detectFacesFlow = ai.defineFlow(
       },
     });
 
-    const {output} = await model.generate({
-        prompt: [
-            { text: "Detect any faces in this image and provide their bounding boxes." },
-            { media: { url: input.photoDataUri } }
-        ]
-    });
-    
-    if (output?.toolCalls) {
-        try {
-            const detections = output.toolCalls[0].args;
-            // Validate with Zod schema before returning
-            return FaceDetectionOutputSchema.parse(detections);
-        } catch (e) {
-             console.error("Face detection parsing error:", e);
-             return { detections: [] };
+    try {
+        const {output} = await model.generate({
+            prompt: [
+                { text: "Detect any faces in this image and provide their bounding boxes using the faceDetection tool." },
+                { media: { url: input.photoDataUri } }
+            ]
+        });
+        
+        if (output?.toolCalls && output.toolCalls.length > 0) {
+            const toolCall = output.toolCalls[0];
+            if (toolCall.name === 'faceDetection' && toolCall.args) {
+                // Validate with Zod schema before returning
+                const parsed = FaceDetectionOutputSchema.safeParse(toolCall.args);
+                if (parsed.success) {
+                    return parsed.data;
+                } else {
+                    console.error("Face detection Zod parsing error:", parsed.error);
+                    return { detections: [] };
+                }
+            }
         }
+    } catch (e) {
+        console.error("Error during face detection flow:", e);
     }
     
+    // Return empty array if anything goes wrong
     return { detections: [] };
   }
 );
