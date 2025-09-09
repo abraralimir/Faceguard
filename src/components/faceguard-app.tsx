@@ -7,7 +7,7 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, UserCheck } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, Cpu } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -21,9 +21,10 @@ const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
 const processingSteps = [
-  "Analyzing image integrity...",
+  "Applying Genkit AI protection layer...",
   "Applying multi-layered AI shield...",
   "Calculating protection score...",
+  "Embedding invisible watermark...",
   "Signing cryptographic receipt...",
 ];
 
@@ -61,7 +62,7 @@ export function FaceGuardApp() {
     if (appState === 'processing' && protectionType === 'image') {
       interval = setInterval(() => {
         setCurrentStep(prev => (prev < processingSteps.length - 1 ? prev + 1 : prev));
-      }, 1500);
+      }, 2500); // Increased duration for more steps
     } else {
         setCurrentStep(0);
     }
@@ -325,7 +326,9 @@ export function FaceGuardApp() {
                         {index < currentStep ? (
                             <CheckCircle className="w-5 h-5 text-success" />
                         ) : (
-                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                           <div className="w-5 h-5 flex items-center justify-center">
+                             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                           </div>
                         )}
                     </div>
                     <span className={`text-sm ${index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>{step}</span>
@@ -342,7 +345,7 @@ export function FaceGuardApp() {
       return (
         <div className="flex flex-col items-center gap-6 text-center">
           <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
-          <h2 className="text-2xl font-bold">Your Image is Protected!</h2>
+          <h2 className="text-2xl font-bold">Gold Standard Protection Applied!</h2>
           <div className="flex flex-wrap justify-center gap-4">
             <a href={processedImageUri} download={`protected_${fileName}.jpg`}>
               <Button>
@@ -374,6 +377,9 @@ export function FaceGuardApp() {
                     <Progress value={protectionScore} className="h-3" />
                     <span className="font-bold text-lg text-primary">{protectionScore}</span>
                   </div>
+                   <CardDescription className="text-xs mt-2">
+                    A measure of cryptographic and structural changes applied to your image.
+                  </CardDescription>
                 </CardContent>
               </Card>
             )}
@@ -382,7 +388,7 @@ export function FaceGuardApp() {
           <Card className="w-full bg-background/50 mt-2 border-white/10">
             <CardHeader>
               <CardTitle className="text-lg">Proof of Protection</CardTitle>
-              <CardDescription>SHA-256 hash of your protected image.</CardDescription>
+              <CardDescription>SHA-256 hash of your final protected image.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">

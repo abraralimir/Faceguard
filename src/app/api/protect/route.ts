@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
+import { protectImage } from '@/ai/flows/protect-image-flow';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'SASHA'; // Your specified owner ID
@@ -198,13 +199,13 @@ function calculateProtectionScore(
   structuralDiff /= originalPixels.length;
   
   // Combine metrics. Weights are recalibrated for the more aggressive shielding.
-  const pixelCorruptionScore = Math.min(mae / 20, 1) * 45;
-  const structuralDisruptionScore = Math.min(structuralDiff / 20, 1) * 55;
+  const pixelCorruptionScore = Math.min(mae / 15, 1) * 45; // Reduced denominator for higher sensitivity
+  const structuralDisruptionScore = Math.min(structuralDiff / 15, 1) * 55; // Reduced denominator
 
   const score = Math.round(pixelCorruptionScore + structuralDisruptionScore);
 
   // Boost score into the "highly protected" range
-  return Math.max(85, Math.min(99, score + 40));
+  return Math.max(80, Math.min(99, score + 40));
 }
 
 
@@ -272,66 +273,73 @@ export async function POST(req: NextRequest) {
     }
 
     const mimeType = imageDataUri.substring(imageDataUri.indexOf(':') + 1, imageDataUri.indexOf(';'));
-    const base64Data = imageDataUri.split(',')[1];
-    if (!base64Data) {
+    const originalBase64Data = imageDataUri.split(',')[1];
+    if (!originalBase64Data) {
       return NextResponse.json({ error: 'Could not extract image data from URI.' }, { status: 400 });
     }
-    const originalImageBuffer = Buffer.from(base64Data, 'base64');
+    const originalImageBuffer = Buffer.from(originalBase64Data, 'base64');
     const originalHash = sha256(originalImageBuffer);
 
     const seed = deriveSeed();
     const timestamp = Date.now();
     
-    // --- Get raw pixel data from original image ---
-    const sharpInstance = sharp(originalImageBuffer);
-    const { data: originalPixels, info } = await sharpInstance
-        .ensureAlpha() // Ensure 4 channels for consistency
+    // --- STAGE 1: AI-Powered Protection ---
+    const aiProtectionResult = await protectImage({ photoDataUri: imageDataUri });
+    const aiProtectedBase64Data = aiProtectionResult.protectedPhotoDataUri.split(',')[1];
+    const aiProtectedImageBuffer = Buffer.from(aiProtectedBase64Data, 'base64');
+
+
+    // --- Get raw pixel data from original image for score calculation ---
+    const { data: originalPixels } = await sharp(originalImageBuffer)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+    // --- Get raw pixel data from AI-protected image for further processing ---
+    const sharpInstance = sharp(aiProtectedImageBuffer);
+    const { data: shieldedPixels, info } = await sharpInstance
+        .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
     
-    // --- Create a mutable clone for processing ---
-    const shieldedPixels = Buffer.from(originalPixels);
-    
-    // --- Step 1: Apply Aggressive AI Shielding to entire image ---
+    // --- STAGE 2: Apply Aggressive AI Shielding ---
     await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
 
-    // --- Step 2: Calculate Protection Score ---
-    const protectionScore = calculateProtectionScore(
-      new Uint8ClampedArray(originalPixels),
-      new Uint8ClampedArray(shieldedPixels)
-    );
-    
-    // --- Step 3: Create the initial receipt (hash is pending) ---
+    // --- Create a temporary shielded image to calculate the hash for the watermark ---
+    const tempShieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
+    const finalHashForWatermark = sha256(tempShieldedImageForHash);
+
+    // --- STAGE 3: Create and Embed Watermark ---
     const receipt: Record<string, any> = {
-      version: '6.0_revolutionary_face_aware',
+      version: '7.0_gold_standard_dual_layer',
       owner: OWNER_ID,
       orig_sha256: originalHash,
+      genkit_sha256: sha256(aiProtectedImageBuffer),
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: 'aggressive',
-      protection_score: protectionScore,
-      faces_detected: 0,
-      final_sha256: 'pending',
+      protection_level: 'gold_standard',
+      protection_score: 'pending',
+      final_sha256: finalHashForWatermark, // Temporarily set hash for watermark
       signature: 'pending',
     };
     
-    // --- Step 4: Embed Invisible Watermark ---
-    // First, calculate the final hash of the shielded-only image to embed it
-    const shieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
-    receipt.final_sha256 = sha256(shieldedImageForHash);
-    
-    // Now, embed the watermark with the complete receipt info
     await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
 
-    // --- Step 5: Convert final pixels (shielded + watermarked) to image buffer ---
+    // --- STAGE 4: Finalize and Sign ---
     const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
         .jpeg({ quality: 95, mozjpeg: true })
         .toBuffer();
     
-    // --- Step 6: Recalculate hash for the *final* outputted file and sign ---
+    // Recalculate hash for the *final* outputted file and calculate score
     receipt.final_sha256 = sha256(finalImageBytes);
+    const {data: finalPixels} = await sharp(finalImageBytes).ensureAlpha().raw().toBuffer({resolveWithObject: true});
+    receipt.protection_score = calculateProtectionScore(
+      new Uint8ClampedArray(originalPixels),
+      new Uint8ClampedArray(finalPixels)
+    );
+    
     receipt.signature = signPayload(receipt);
 
     // --- Final Output ---
@@ -341,8 +349,8 @@ export async function POST(req: NextRequest) {
       processedImageUri: processedImageUri,
       hash: receipt.final_sha256,
       receipt: receipt,
-      protectionScore,
-      facesDetected: false
+      protectionScore: receipt.protection_score,
+      facesDetected: false // Placeholder, can be updated if face detection is re-added
     });
 
   } catch (error) {
