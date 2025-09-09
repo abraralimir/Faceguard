@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
+import { detectFaces, FaceDetection } from '@/ai/flows/detect-faces';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'SASHA'; // Your specified owner ID
@@ -31,13 +32,16 @@ try {
  * Glaze and Nightshade, designed to be maximally disruptive to AI models.
  */
 async function applyAiShielding(
-  pixels: Uint8ClampedArray,
+  pixels: Buffer | Uint8ClampedArray,
   width: number,
   height: number,
   channels: number,
-  seed: string
+  seed: string,
+  aggression: 'normal' | 'high' = 'normal'
 ): Promise<void> {
-  const strength = { noise: 20, shift: 3, warp: 2.0 }; // Increased aggression
+  const strength = aggression === 'normal' 
+    ? { noise: 20, shift: 3, warp: 2.0 } 
+    : { noise: 40, shift: 5, warp: 3.0 }; // Higher aggression for faces
 
   // --- Seeded PRNG for deterministic randomness ---
   let seedValue = 0;
@@ -61,8 +65,8 @@ async function applyAiShielding(
   // --- Layer 2: Chromatic Aberration & Pixel Shifting ---
   const shift = strength.shift;
   if (shift > 0) {
-    const shiftedPixels = new Uint8ClampedArray(pixels);
-    for (let y = 0; y < height; y++) {
+    const shiftedPixels = Buffer.from(pixels); // Create a copy
+    for (let y = 0; < height; y++) {
       for (let x = 0; x < width; x++) {
         const baseIndex = (y * width + x) * channels;
         const rSrcIndex = (Math.min(height-1, y + shift) * width + Math.min(width-1, x + shift)) * channels;
@@ -77,7 +81,7 @@ async function applyAiShielding(
   // --- Layer 3: Micro-Distortion (Pixel Warping) ---
   const warpStrength = strength.warp;
   if (warpStrength > 0) {
-    const warpedPixels = new Uint8ClampedArray(pixels);
+    const warpedPixels = Buffer.from(pixels); // Create a copy
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const x_offset = Math.floor(Math.sin(y / 12.0 + seedValue) * warpStrength);
@@ -100,7 +104,7 @@ async function applyAiShielding(
  * This function directly manipulates the pixel buffer.
  */
 async function embedInvisibleWatermark(
-    pixels: Uint8ClampedArray,
+    pixels: Buffer,
     width: number,
     height: number,
     receipt: Record<string, any>
@@ -279,27 +283,54 @@ export async function POST(req: NextRequest) {
     const seed = deriveSeed();
     const timestamp = Date.now();
 
+    // --- Step 1: Detect Faces ---
+    const faces = await detectFaces({ photoDataUri: imageDataUri });
+
     // --- Get raw pixel data from original image ---
-    const { data: originalPixels, info } = await sharp(originalImageBuffer)
+    const sharpInstance = sharp(originalImageBuffer);
+    const { data: originalPixels, info } = await sharpInstance
+        .ensureAlpha() // Ensure 4 channels for consistency
         .raw()
-        .toBuffer({ resolveWithObject: true });
+        toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
     
     // --- Create a mutable clone for processing ---
-    const shieldedPixels = new Uint8ClampedArray(originalPixels);
+    const shieldedPixels = Buffer.from(originalPixels);
     
-    // --- Step 1: Apply Aggressive AI Shielding ---
-    await applyAiShielding(shieldedPixels, width, height, channels, seed);
+    // --- Step 2: Apply Aggressive AI Shielding to entire image ---
+    await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
+
+    // --- Step 3: Apply EXTRA aggressive shielding to detected faces ---
+    if (faces && faces.detections.length > 0) {
+      console.log(`Detected ${faces.detections.length} faces. Applying targeted protection.`);
+      for (const face of faces.detections) {
+          const { x, y, w, h } = face;
+          // Extract the face region
+          const faceBuffer = await sharp(shieldedPixels, { raw: { width, height, channels }})
+              .extract({ left: x, top: y, width: w, height: h })
+              .raw()
+              .toBuffer();
+          
+          // Apply super aggressive shielding to the face region
+          await applyAiShielding(faceBuffer, w, h, channels, seed + 'face', 'high');
+          
+          // Composite the hyper-protected face back onto the main image
+          await sharp(shieldedPixels, { raw: { width, height, channels }})
+              .composite([{ input: faceBuffer, left: x, top: y, raw: { width: w, height: h, channels: channels } }])
+              .toBuffer()
+              .then(b => b.copy(shieldedPixels));
+      }
+    }
     
-    // --- Step 2: Calculate Protection Score ---
+    // --- Step 4: Calculate Protection Score ---
     const protectionScore = calculateProtectionScore(
       new Uint8ClampedArray(originalPixels),
-      shieldedPixels
+      new Uint8ClampedArray(shieldedPixels)
     );
     
-    // --- Step 3: Create the initial receipt (hash is pending) ---
+    // --- Step 5: Create the initial receipt (hash is pending) ---
     const receipt: Record<string, any> = {
-      version: '5.0_revolutionary',
+      version: '6.0_revolutionary_face_aware',
       owner: OWNER_ID,
       orig_sha256: originalHash,
       seed: seed,
@@ -307,11 +338,12 @@ export async function POST(req: NextRequest) {
       public_key: publicKeyHex,
       protection_level: 'aggressive',
       protection_score: protectionScore,
+      faces_detected: faces?.detections?.length || 0,
       final_sha256: 'pending',
       signature: 'pending',
     };
     
-    // --- Step 4: Embed Invisible Watermark ---
+    // --- Step 6: Embed Invisible Watermark ---
     // First, calculate the final hash of the shielded-only image to embed it
     const shieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
     receipt.final_sha256 = sha256(shieldedImageForHash);
@@ -319,12 +351,12 @@ export async function POST(req: NextRequest) {
     // Now, embed the watermark with the complete receipt info
     await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
 
-    // --- Step 5: Convert final pixels (shielded + watermarked) to image buffer ---
+    // --- Step 7: Convert final pixels (shielded + watermarked) to image buffer ---
     const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
         .jpeg({ quality: 95, mozjpeg: true })
         .toBuffer();
     
-    // --- Step 6: Recalculate hash for the *final* outputted file and sign ---
+    // --- Step 8: Recalculate hash for the *final* outputted file and sign ---
     receipt.final_sha256 = sha256(finalImageBytes);
     receipt.signature = signPayload(receipt);
 
@@ -336,6 +368,7 @@ export async function POST(req: NextRequest) {
       hash: receipt.final_sha256,
       receipt: receipt,
       protectionScore,
+      facesDetected: faces?.detections?.length > 0
     });
 
   } catch (error) {

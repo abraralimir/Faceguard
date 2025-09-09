@@ -7,7 +7,7 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, UserCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -20,7 +20,7 @@ const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
-const processingSteps = [
+const baseProcessingSteps = [
   "Analyzing image integrity...",
   "Applying multi-layered AI shield...",
   "Calculating protection score...",
@@ -35,11 +35,20 @@ export function FaceGuardApp() {
   const [processedVideoUri, setProcessedVideoUri] = useState<string | null>(null);
   const [fileHash, setFileHash] = useState<string | null>(null);
   const [protectionScore, setProtectionScore] = useState<number | null>(null);
+  const [facesDetected, setFacesDetected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('protected_file');
   const [currentStep, setCurrentStep] = useState(0);
 
   const { toast } = useToast();
+  
+  const processingSteps = useMemo(() => {
+    const steps = [...baseProcessingSteps];
+    if (appState === 'processing') {
+      steps.splice(1, 0, "Detecting faces for targeted protection...");
+    }
+    return steps;
+  }, [appState]);
 
   const filePreviewUrl = useMemo(() => {
     if (file) {
@@ -61,12 +70,12 @@ export function FaceGuardApp() {
     if (appState === 'processing' && protectionType === 'image') {
       interval = setInterval(() => {
         setCurrentStep(prev => (prev < processingSteps.length - 1 ? prev + 1 : prev));
-      }, 750); // Adjust timing as needed
+      }, 1500); // Slower interval to account for more steps
     } else {
         setCurrentStep(0);
     }
     return () => clearInterval(interval);
-  }, [appState, protectionType]);
+  }, [appState, protectionType, processingSteps.length]);
 
 
   const resetState = useCallback(() => {
@@ -77,6 +86,7 @@ export function FaceGuardApp() {
     setFileHash(null);
     setError(null);
     setProtectionScore(null);
+    setFacesDetected(false);
     setCurrentStep(0);
     if(filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl)
@@ -103,7 +113,7 @@ export function FaceGuardApp() {
     file: File,
     apiEndpoint: string,
     bodyKey: string
-  ): Promise<{ processedUri: string; hash: string, protectionScore: number | null }> => {
+  ): Promise<{ processedUri: string; hash: string, protectionScore: number | null, facesDetected: boolean | null }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -126,6 +136,7 @@ export function FaceGuardApp() {
             processedUri: data.processedImageUri || data.processedVideoUri,
             hash: data.hash,
             protectionScore: data.protectionScore || null,
+            facesDetected: data.facesDetected || null,
           });
         } catch (e) {
           reject(e);
@@ -144,10 +155,11 @@ export function FaceGuardApp() {
     setError(null);
 
     try {
-      const { processedUri, hash, protectionScore } = await processFile(file, '/api/protect', 'imageDataUri');
+      const { processedUri, hash, protectionScore, facesDetected } = await processFile(file, '/api/protect', 'imageDataUri');
       setProcessedImageUri(processedUri);
       setFileHash(hash);
       setProtectionScore(protectionScore);
+      setFacesDetected(!!facesDetected);
       setAppState("success");
     } catch (e: any) {
       const errorMessage = e.message || "An unknown error occurred.";
@@ -168,6 +180,7 @@ export function FaceGuardApp() {
     setError(null);
 
     try {
+      // Faces are not detected for videos in this implementation
       const { processedUri, hash } = await processFile(file, '/api/protect-video', 'videoDataUri');
       setProcessedVideoUri(processedUri);
       setFileHash(hash)
@@ -325,6 +338,7 @@ export function FaceGuardApp() {
                         {index < currentStep ? (
                             <CheckCircle className="w-5 h-5 text-success" />
                         ) : (
+                             index === 1 ? <UserCheck className="w-5 h-5 text-primary animate-pulse" /> :
                             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                         )}
                     </div>
@@ -360,23 +374,38 @@ export function FaceGuardApp() {
             </Button>
           </div>
           
-          {protectionScore && (
-             <Card className="w-full bg-background/50 mt-4 border-white/10">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <TrendingUp className="w-5 h-5" />
-                  Protection Score
-                </CardTitle>
-                <CardDescription>How much we've hardened your image against AI.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <Progress value={protectionScore} className="h-3" />
-                  <span className="font-bold text-lg text-primary">{protectionScore}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4">
+            {facesDetected && (
+              <Card className="w-full bg-green-950/50 border-green-500/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base text-green-400">
+                    <UserCheck className="w-5 h-5" />
+                    Targeted Face Protection
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="text-sm text-muted-foreground">Faces were detected and an extra layer of aggressive protection was applied to facial regions.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {protectionScore && (
+              <Card className={`w-full bg-background/50 border-white/10 ${!facesDetected ? 'md:col-span-2' : ''}`}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="w-5 h-5" />
+                    Protection Score
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex items-center gap-4">
+                    <Progress value={protectionScore} className="h-3" />
+                    <span className="font-bold text-lg text-primary">{protectionScore}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           <Card className="w-full bg-background/50 mt-2 border-white/10">
             <CardHeader>
@@ -477,3 +506,5 @@ export function FaceGuardApp() {
     </Card>
   );
 }
+
+    
