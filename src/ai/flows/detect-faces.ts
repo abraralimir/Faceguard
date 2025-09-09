@@ -43,7 +43,7 @@ export async function detectFaces(input: FaceDetectionInput): Promise<FaceDetect
 const faceDetectionTool = ai.defineTool(
     {
       name: 'faceDetection',
-      description: 'Detect faces in an image and return their bounding boxes.',
+      description: 'Detect faces in an image and provide their bounding boxes. Only call this tool if one or more faces are detected.',
       inputSchema: FaceDetectionOutputSchema,
       outputSchema: z.void(),
     },
@@ -61,18 +61,12 @@ const detectFacesFlow = ai.defineFlow(
     const model = ai.getModel({
       model: 'googleai/gemini-2.5-flash-image-preview',
       tools: [faceDetectionTool],
-      toolConfig: {
-        mode: 'required',
-        requiredTool: {
-          toolName: 'faceDetection',
-        },
-      },
     });
 
     try {
         const {output} = await model.generate({
             prompt: [
-                { text: "Detect any faces in this image and provide their bounding boxes using the faceDetection tool." },
+                { text: "Detect any human faces in this image. If you find any, provide their bounding boxes using the faceDetection tool. If there are no faces, do not call the tool." },
                 { media: { url: input.photoDataUri } }
             ]
         });
@@ -86,7 +80,7 @@ const detectFacesFlow = ai.defineFlow(
                     return parsed.data;
                 } else {
                     console.error("Face detection Zod parsing error:", parsed.error);
-                    return { detections: [] };
+                    // Fall through to return empty array if parsing fails
                 }
             }
         }
@@ -94,7 +88,7 @@ const detectFacesFlow = ai.defineFlow(
         console.error("Error during face detection flow:", e);
     }
     
-    // Return empty array if anything goes wrong
+    // Return empty array if anything goes wrong, or if no faces are detected
     return { detections: [] };
   }
 );
