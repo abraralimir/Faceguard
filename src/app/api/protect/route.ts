@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
+import jimp from 'jimp';
 
 // --- CONFIGURATION ---
 const OWNER_ID = 'SASHA'; // Your specified owner ID
@@ -96,6 +97,44 @@ async function applyAiShielding(
     }
   }
 }
+
+/**
+ * NEW LAYER: Applies subtle JPEG artifact perturbations to confuse models
+ * that rely on compression patterns.
+ */
+async function applyJpegArtifactPerturbation(imageBuffer: Buffer, seed: string): Promise<Buffer> {
+    const image = await jimp.read(imageBuffer);
+    const width = image.getWidth();
+    const height = image.getHeight();
+
+    // --- Seeded PRNG ---
+    let seedValue = 0;
+    for (let i = 0; i < seed.length; i++) {
+        seedValue = (seedValue + seed.charCodeAt(i) * (i + 2)) % 100000;
+    }
+    const seededRandom = () => {
+        const x = Math.sin(seedValue++) * 100000;
+        return x - Math.floor(x);
+    };
+    
+    // Choose a random small block to re-compress
+    const blockSize = 64;
+    const x = Math.floor(seededRandom() * (width - blockSize));
+    const y = Math.floor(seededRandom() * (height - blockSize));
+
+    const block = image.clone().crop(x, y, blockSize, blockSize);
+
+    // Re-compress this block with a slightly different quality
+    const quality = 85 + Math.floor(seededRandom() * 10); // 85-94
+    const compressedBlockBuffer = await block.quality(quality).getBufferAsync(jimp.MIME_JPEG);
+    const recompressedBlock = await jimp.read(compressedBlockBuffer);
+
+    // Composite the re-compressed block back onto the main image
+    image.composite(recompressedBlock, x, y);
+    
+    return await image.getBufferAsync(jimp.MIME_JPEG);
+}
+
 
 /**
  * Embeds a forgery-proof, high-capacity invisible watermark directly into the
@@ -283,39 +322,49 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
     
     // --- Get raw pixel data from original image for score calculation & processing ---
-    const { data: originalPixels, info } = await sharp(originalImageBuffer)
+    const { data: originalPixels, info: originalInfo } = await sharp(originalImageBuffer)
         .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
     
-    const { width, height, channels } = info;
+    const { width, height, channels } = originalInfo;
     const shieldedPixels = Buffer.from(originalPixels);
     
     // --- STAGE 1: Apply Aggressive AI Shielding ---
     await applyAiShielding(shieldedPixels, width, height, channels, seed, 'normal');
 
-    // --- Create a temporary shielded image to calculate the hash for the watermark ---
-    const tempShieldedImageForHash = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
-    const finalHashForWatermark = sha256(tempShieldedImageForHash);
+    // --- STAGE 2: JPEG Artifact Perturbation ---
+    // This stage requires converting back and forth from a buffer, which is intended.
+    let shieldedImageBuffer = await sharp(shieldedPixels, { raw: { width, height, channels } }).jpeg().toBuffer();
+    shieldedImageBuffer = await applyJpegArtifactPerturbation(shieldedImageBuffer, seed);
 
-    // --- STAGE 2: Create and Embed Watermark ---
+    // --- Create a temporary shielded image to calculate the hash for the watermark ---
+    const finalHashForWatermark = sha256(shieldedImageBuffer);
+
+    // --- STAGE 3: Create and Embed Watermark ---
+    // We need to get the raw pixels from the JPEG-perturbed image to apply the watermark
+    const { data: finalShieldedPixels, info: finalInfo } = await sharp(shieldedImageBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+      
     const receipt: Record<string, any> = {
-      version: '7.0_gold_standard_dual_layer',
+      version: '8.0_gold_standard_quad_layer',
       owner: OWNER_ID,
       orig_sha256: originalHash,
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,
-      protection_level: 'gold_standard',
+      protection_level: 'gold_standard_plus',
       protection_score: 'pending',
       final_sha256: finalHashForWatermark, // Temporarily set hash for watermark
       signature: 'pending',
     };
     
-    await embedInvisibleWatermark(shieldedPixels, width, height, receipt);
+    await embedInvisibleWatermark(finalShieldedPixels, finalInfo.width, finalInfo.height, receipt);
 
-    // --- STAGE 3: Finalize and Sign ---
-    const finalImageBytes = await sharp(shieldedPixels, { raw: { width, height, channels } })
+    // --- STAGE 4: Finalize and Sign ---
+    const finalImageBytes = await sharp(finalShieldedPixels, { raw: { width: finalInfo.width, height: finalInfo.height, channels: finalInfo.channels } })
         .jpeg({ quality: 95, mozjpeg: true })
         .toBuffer();
     
