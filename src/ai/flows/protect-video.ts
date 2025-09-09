@@ -2,7 +2,7 @@
 /**
  * @fileOverview A video protection agent.
  * This file is currently not a Genkit flow, but contains types for video processing.
- * 
+ *
  * - ProtectVideoInput - The input type for the protectVideo function.
  * - ProtectVideoOutput - The return type for the protectVideo function.
  */
@@ -21,7 +21,8 @@ export const ProtectVideoInputSchema = z.object({
 export type ProtectVideoInput = z.infer<typeof ProtectVideoInputSchema>;
 
 export const ProtectVideoOutputSchema = z.object({
-  hash: z.string().describe("The SHA-256 hash of the video."),
+  hash: z.string().describe('The SHA-256 hash of the video.'),
 });
 export type ProtectVideoOutput = z.infer<typeof ProtectVideoOutputSchema>;
+
     
