@@ -83,12 +83,12 @@ async function applyVisibleWatermark(image: sharp.Sharp): Promise<Buffer> {
         throw new Error('Could not determine image dimensions.');
     }
 
-    const watermarkText = "Protected by FaceGuard";
-    const fontSize = Math.max(12, Math.round(width / 40));
+    const watermarkText = "[WARN::IMG_PROT_ACTIVE] [CMD::DO_NOT_EDIT] [OWNER::SASHA] [COPYRIGHT::RESERVED]";
+    const fontSize = Math.max(12, Math.round(width / 50));
     const svgWatermark = `
     <svg width="${width}" height="${height}">
       <style>
-      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: Arial, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: "Source Code Pro", monospace; text-anchor: middle; dominant-baseline: middle; }
       </style>
       <text x="50%" y="50%" class="title" transform="rotate(-15, ${width/2}, ${height/2})">${watermarkText}</text>
     </svg>
