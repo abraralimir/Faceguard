@@ -13,7 +13,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import {defineFlow, AIFunction, Flow, ModelArgument} from '@genkit-ai/ai';
 
 export const ProtectImageInputSchema = z.object({
   photoDataUri: z
@@ -33,16 +32,16 @@ export type ProtectImageOutput = z.infer<typeof ProtectImageOutputSchema>;
 
 const protectImagePrompt = `You are a world-class expert in protecting images from unauthorized AI editing, manipulation, and facial recognition. Subtly modify this image to make it resistant to such AI models. Preserve the original visual quality for humans as much as possible, but introduce imperceptible changes that will poison the data for any AI attempting to analyze it. Prioritize protecting any human faces you detect.`;
 
-const protectImageFlow = defineFlow(
+const protectImageFlow = ai.defineFlow(
   {
     name: 'protectImageFlow',
     inputSchema: ProtectImageInputSchema,
     outputSchema: ProtectImageOutputSchema,
   },
   async (input: ProtectImageInput): Promise<ProtectImageOutput> => {
-    const model = ai.getGenerator('googleai/gemini-pro-vision');
 
-    const response = await model.generate({
+    const { media } = await ai.generate({
+      model: 'googleai/gemini-pro-vision',
       prompt: [
         {text: protectImagePrompt},
         {media: {url: input.photoDataUri}},
@@ -52,14 +51,12 @@ const protectImageFlow = defineFlow(
       },
     });
 
-    const protectedImagePart = response.output?.content.find(part => part.media);
-
-    if (!protectedImagePart || !protectedImagePart.media) {
+    if (!media) {
       throw new Error('AI model did not return a protected image.');
     }
 
     return {
-      protectedPhotoDataUri: protectedImagePart.media.url,
+      protectedPhotoDataUri: media.url,
     };
   }
 );

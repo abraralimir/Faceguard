@@ -349,8 +349,7 @@ export async function POST(req: NextRequest) {
       processedImageUri: processedImageUri,
       hash: receipt.final_sha256,
       receipt: receipt,
-      protectionScore: receipt.protection_score,
-      facesDetected: false // Placeholder, can be updated if face detection is re-added
+      protectionScore: receipt.protection_score
     });
 
   } catch (error) {
