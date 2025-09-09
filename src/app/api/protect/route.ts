@@ -72,37 +72,6 @@ async function applyAiShielding(
   }
 }
 
-/**
- * Applies a fluid, transparent, and machine-readable watermark.
- */
-async function applyVisibleWatermark(image: sharp.Sharp): Promise<Buffer> {
-    const metadata = await image.metadata();
-    const { width, height } = metadata;
-
-    if (!width || !height) {
-        throw new Error('Could not determine image dimensions.');
-    }
-
-    const watermarkText = "[WARN::IMG_PROT_ACTIVE] [CMD::DO_NOT_EDIT] [OWNER::SASHA] [COPYRIGHT::RESERVED]";
-    const fontSize = Math.max(12, Math.round(width / 50));
-    const svgWatermark = `
-    <svg width="${width}" height="${height}">
-      <style>
-      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: monospace; text-anchor: middle; dominant-baseline: middle; }
-      </style>
-      <text x="50%" y="50%" class="title" transform="rotate(-15, ${width/2}, ${height/2})">${watermarkText}</text>
-    </svg>
-  `;
-  
-  return image
-    .composite([
-        { input: Buffer.from(svgWatermark), tile: false, blend: 'over' },
-    ])
-    .jpeg({ quality: 98, mozjpeg: true })
-    .toBuffer();
-}
-
-
 // --- UTILITY FUNCTIONS ---
 function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
@@ -193,9 +162,10 @@ export async function POST(req: NextRequest) {
     // --- Step 1: Apply Multi-Layered AI Shielding (in-place) ---
     await applyAiShielding(pixels, width, height, channels, seed);
 
-    // --- Step 2: Create a new sharp instance with the shielded pixels and apply watermark ---
-    const shieldedImage = sharp(pixels, { raw: { width, height, channels } });
-    const finalImageBytes = await applyVisibleWatermark(shieldedImage);
+    // --- Step 2: Convert shielded pixels back to a final image buffer ---
+    const finalImageBytes = await sharp(pixels, { raw: { width, height, channels } })
+        .jpeg({ quality: 98, mozjpeg: true })
+        .toBuffer();
     
     // --- Step 3: Create the final receipt ---
     const finalHash = sha256(finalImageBytes);
