@@ -315,7 +315,6 @@ export async function POST(req: NextRequest) {
       version: '7.0_gold_standard_dual_layer',
       owner: OWNER_ID,
       orig_sha256: originalHash,
-      genkit_sha256: sha256(aiProtectedImageBuffer),
       seed: seed,
       timestamp: timestamp,
       public_key: publicKeyHex,

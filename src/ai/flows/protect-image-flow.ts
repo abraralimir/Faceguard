@@ -8,7 +8,7 @@
  *
  * - protectImage - A function that handles the image protection process.
  * - ProtectImageInput - The input type for the protectImage function.
- * - ProtectImageOutput - The return type for the protectImage function.
+ * - ProtectImageOuptut - The return type for the protectImage function.
  */
 
 import {ai} from '@/ai/genkit';
