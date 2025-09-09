@@ -1,10 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { 
-    applyAiShielding, 
-    applyVisibleWatermark 
-} from '@/ai/flows/apply-ai-shielding';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
 
@@ -13,8 +9,6 @@ const OWNER_ID = 'FaceGuardUser'; // A default owner ID
 const MASTER_KEY = process.env.FACEGUARD_MASTER_KEY || 'default-secret-key-that-is-long-and-secure';
 
 // --- CRYPTOGRAPHIC SETUP (Ed25519) ---
-// This setup generates a key pair when the server starts.
-// In a real production environment, you would load the private key from a secure secret manager.
 let privateKey: forge.pki.ed25519.KeyPair;
 let publicKeyHex: string;
 
@@ -25,8 +19,87 @@ try {
   console.log("FaceGuard signing public key:", publicKeyHex);
 } catch (e) {
   console.error("Critical: Could not generate server key pair. Signing will fail.", e);
-  privateKey = {} as any; // Prevent server from running without keys
+  privateKey = {} as any; 
   publicKeyHex = '';
+}
+
+
+// --- CORE PROTECTION LOGIC ---
+
+/**
+ * Applies a multi-layered, high-strength but visually subtle perturbation shield.
+ */
+async function applyAiShielding(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  channels: number,
+  seed: string
+): Promise<void> {
+  const strength = { noise: 7, shift: 1 };
+
+  let seedValue = 0;
+  for (let i = 0; i < seed.length; i++) {
+    seedValue = (seedValue + seed.charCodeAt(i) * (i + 1)) % 100000;
+  }
+  const seededRandom = () => {
+    const x = Math.sin(seedValue++) * 100000;
+    return x - Math.floor(x);
+  };
+
+  const noiseStrength = strength.noise;
+  for (let i = 0; i < pixels.length; i += channels) {
+    const noise = (seededRandom() - 0.5) * noiseStrength;
+    pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
+    pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
+    pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
+  }
+
+  const shift = strength.shift;
+  if (shift > 0) {
+    const shiftedPixels = new Uint8ClampedArray(pixels);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const rIndex = (y * width + Math.min(width - 1, x + shift)) * channels;
+        const bIndex = (y * width + Math.max(0, x - shift)) * channels;
+        const gIndex = (y * width + x) * channels;
+
+        pixels[gIndex] = shiftedPixels[rIndex];
+        pixels[gIndex + 1] = shiftedPixels[gIndex + 1];
+        pixels[gIndex + 2] = shiftedPixels[bIndex + 2];
+      }
+    }
+  }
+}
+
+/**
+ * Applies a fluid, transparent, and machine-readable watermark.
+ */
+async function applyVisibleWatermark(image: sharp.Sharp): Promise<Buffer> {
+    const metadata = await image.metadata();
+    const { width, height } = metadata;
+
+    if (!width || !height) {
+        throw new Error('Could not determine image dimensions.');
+    }
+
+    const watermarkText = "Protected by FaceGuard";
+    const fontSize = Math.max(12, Math.round(width / 40));
+    const svgWatermark = `
+    <svg width="${width}" height="${height}">
+      <style>
+      .title { fill: rgba(255, 255, 255, 0.3); font-size: ${fontSize}px; font-weight: bold; font-family: Arial, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+      </style>
+      <text x="50%" y="50%" class="title" transform="rotate(-15, ${width/2}, ${height/2})">${watermarkText}</text>
+    </svg>
+  `;
+  
+  return image
+    .composite([
+        { input: Buffer.from(svgWatermark), tile: false, blend: 'over' },
+    ])
+    .jpeg({ quality: 98, mozjpeg: true })
+    .toBuffer();
 }
 
 
@@ -35,43 +108,36 @@ function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-// Derives a unique and unpredictable seed for each protection run.
 function deriveSeed(): string {
   const timestamp = Date.now().toString();
   const random = randomBytes(16).toString('hex');
   const message = `${timestamp}|${random}|${OWNER_ID}`;
-  // Use HMAC with the master key to create a deterministic but unpredictable seed
   return createHmac('sha256', MASTER_KEY).update(message).digest('hex');
 }
 
-// Signs a payload with the server's Ed25519 private key.
 function signPayload(payload: Record<string, any>): string {
   if (!privateKey || !privateKey.privateKey) {
     throw new Error("Server key pair not available for signing. Check server logs.");
   }
-  // Sorting keys ensures a consistent JSON string, which is critical for verification.
   const message = JSON.stringify(payload, Object.keys(payload).sort());
-  // IMPORTANT: The message must be encoded as a binary string for forge
   const messageBytes = forge.util.encodeUtf8(message);
 
-  // Use forge to sign the message bytes
   const signature = forge.pki.ed25519.sign({
     privateKey: privateKey.privateKey,
     message: messageBytes,
-    encoding: 'binary', // Important: work with raw bytes
+    encoding: 'binary',
   });
 
   return Buffer.from(signature, 'binary').toString('hex');
 }
 
 // --- RATE LIMITING ---
-// Simple in-memory rate limiting. For production, consider a distributed solution like Redis.
 const ipRequestCounts = new Map<string, number>();
-const RATE_LIMIT_MAX_REQUESTS = 20; // Max requests per window
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 20;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
-  if (process.env.NODE_ENV !== 'production') return true; // Disable in dev
+  if (process.env.NODE_ENV !== 'production') return true;
 
   const now = Date.now();
   const currentCount = ipRequestCounts.get(ip) || 0;
@@ -81,7 +147,6 @@ function checkRateLimit(ip: string): boolean {
   }
 
   ipRequestCounts.set(ip, currentCount + 1);
-  // Decrement the count after the window expires
   setTimeout(() => {
     const count = ipRequestCounts.get(ip) || 1;
     ipRequestCounts.set(ip, count - 1);
@@ -116,11 +181,9 @@ export async function POST(req: NextRequest) {
     const originalImageBuffer = Buffer.from(base64Data, 'base64');
     const originalHash = sha256(originalImageBuffer);
 
-    // --- Generate a unique, cryptographically secure seed for this run ---
     const seed = deriveSeed();
     const timestamp = Date.now();
 
-    // --- Start Unified Processing with Sharp ---
     const { data: rawPixels, info } = await sharp(originalImageBuffer)
         .raw()
         .toBuffer({ resolveWithObject: true });
@@ -130,13 +193,11 @@ export async function POST(req: NextRequest) {
     // --- Step 1: Apply Multi-Layered AI Shielding (in-place) ---
     await applyAiShielding(pixels, width, height, channels, seed);
 
-    // --- Create a new sharp instance with the shielded pixels ---
+    // --- Step 2: Create a new sharp instance with the shielded pixels and apply watermark ---
     const shieldedImage = sharp(pixels, { raw: { width, height, channels } });
-    
-    // --- Step 2: Apply the visible watermark to the shielded image ---
     const finalImageBytes = await applyVisibleWatermark(shieldedImage);
     
-    // --- Step 3: Create the final receipt (to be signed) ---
+    // --- Step 3: Create the final receipt ---
     const finalHash = sha256(finalImageBytes);
     const receipt: Record<string, any> = {
       version: '3.0',
@@ -147,7 +208,7 @@ export async function POST(req: NextRequest) {
       public_key: publicKeyHex,
       protection_level: 'strong',
       final_sha256: finalHash,
-      signature: 'pending', // Placeholder
+      signature: 'pending',
     };
     
     // --- Step 4: Sign the completed receipt ---
