@@ -71,6 +71,7 @@ const detectFacesFlow = ai.defineFlow(
 
     const {output} = await model.generate({
         prompt: [
+            { text: "Detect any faces in this image and provide their bounding boxes." },
             { media: { url: input.photoDataUri } }
         ]
     });
