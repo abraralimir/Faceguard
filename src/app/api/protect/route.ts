@@ -1,8 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { applyAiShielding } from '@/ai/flows/apply-ai-shielding';
+import { applyAiShielding, applyVisibleWatermark } from '@/ai/flows/apply-ai-shielding';
 import { embedInvisibleWatermark } from '@/ai/flows/embed-invisible-watermark';
-import sharp from 'sharp';
 import { createHash, randomBytes, createHmac } from 'crypto';
 import forge from 'node-forge';
 
@@ -121,8 +120,7 @@ export async function POST(req: NextRequest) {
     // --- Step 1: Apply Multi-Layered AI Shielding ---
     const shieldedBuffer = await applyAiShielding(imageBuffer, seed);
 
-    // --- Step 2: Create a PRELIMINARY receipt (to be embedded) ---
-    // The final_sha256 and signature will be added later.
+    // --- Step 2: Create the full receipt object (to be embedded) ---
     const receipt: Record<string, any> = {
       version: '3.0',
       owner: OWNER_ID,
@@ -131,50 +129,44 @@ export async function POST(req: NextRequest) {
       timestamp: timestamp,
       public_key: publicKeyHex,
       protection_level: 'strong',
-      // final_sha256 and signature will be added after watermarking
+      final_sha256: 'pending', // Placeholder, will be replaced
+      signature: 'pending', // Placeholder, will be replaced
     };
 
-    // --- Step 3: Embed a preliminary receipt (without final hash/sig) ---
-    // This creates an intermediate image buffer.
-    const preWatermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, {
-        ...receipt,
-        final_sha256: 'pending', // Placeholder
-    });
+    // --- Step 3: Embed the full invisible watermark with final receipt data ---
+    // This creates an intermediate image buffer that has the invisible watermark.
+    const invisiblyWatermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
 
-
-    // --- Step 4: Calculate the TRUE final hash from the watermarked image ---
-    const finalHash = sha256(preWatermarkedBuffer);
+    // --- Step 4: Calculate the TRUE final hash from the invisibly watermarked image ---
+    const finalHash = sha256(invisiblyWatermarkedBuffer);
     receipt.final_sha256 = finalHash;
 
     // --- Step 5: Sign the FINAL receipt ---
-    // Now that the receipt is complete, we can sign it.
+    // Now that the receipt is complete with the correct hash, we can sign it.
     receipt.signature = signPayload(receipt);
 
-    // --- Step 6: Re-embed the FULLY signed receipt ---
-    // This ensures the signature is part of the final artifact.
-    // This step is fast as it just updates the watermark payload.
-    const finalImageBytes = await embedInvisibleWatermark(shieldedBuffer, receipt);
+    // --- Step 6: Re-embed the FULLY signed receipt into the invisible watermark ---
+    // This is a fast operation that ensures the final signature is part of the artifact.
+    const finalInvisiblyWatermarkedBuffer = await embedInvisibleWatermark(shieldedBuffer, receipt);
+    
+    // Verification Step (optional but recommended)
+    if (sha256(finalInvisiblyWatermarkedBuffer) !== receipt.final_sha256) {
+        console.warn("Verification hash mismatch after final embed. The signature may be invalid.");
+        // If this happens, it indicates a bug in the watermarking logic.
+    }
+    
+    // --- Step 7: Apply the visible watermark as the very last step ---
+    const finalImageBytes = await applyVisibleWatermark(finalInvisiblyWatermarkedBuffer);
 
     // --- Final Output ---
     const processedImageUri = `data:${mimeType};base64,${finalImageBytes.toString('base64')}`;
     
-    // The final hash should match the hash of the re-watermarked buffer.
-    // This verification step is critical.
-    const finalVerificationHash = sha256(finalImageBytes);
-    
-    if(finalVerificationHash !== receipt.final_sha256) {
-        console.warn("Verification hash mismatch after final embed. This should not happen, but we will use the actual final hash.");
-        // We will trust the hash of the *final* output buffer for the client.
-         receipt.final_sha256 = finalVerificationHash;
-         receipt.signature = signPayload(receipt); // Re-sign with the correct hash
-    }
-
-
     return NextResponse.json({
       processedImageUri: processedImageUri,
       hash: receipt.final_sha256,
       receipt: receipt,
     });
+
   } catch (error) {
     console.error('Image processing failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';

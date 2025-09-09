@@ -74,18 +74,34 @@ export async function applyAiShielding(
   }
 
   // --- Rebuild the image from perturbed pixels ---
-  const perturbedImage = sharp(Buffer.from(pixels), {
+  return sharp(Buffer.from(pixels), {
     raw: {
       width,
       height,
       channels,
     },
-  });
+  }).toBuffer();
+}
 
-  // --- Layer 3: Fluid Transparent Watermark (Embossed Effect) ---
-  const watermarkText = "Warning: This image is protected by SASHA. Any edit on this image is a misuse.";
-  const fontSize = Math.max(12, Math.round(width / 50)); // Responsive font size
-  const svgWatermarkBase = `
+
+/**
+ * Applies a fluid, transparent, and machine-readable watermark.
+ * This is designed to be the final step in the protection process.
+ */
+export async function applyVisibleWatermark(
+  inputBuffer: Buffer
+): Promise<Buffer> {
+    const image = sharp(inputBuffer);
+    const metadata = await image.metadata();
+    const { width, height } = metadata;
+
+    if (!width || !height) {
+        throw new Error('Could not determine image dimensions.');
+    }
+
+    const watermarkText = "WARNING DO NOT EDIT THIS IMAGE THIS IMAGE HAVE COPYRIGHTS OF SASHA";
+    const fontSize = Math.max(12, Math.round(width / 50)); // Responsive font size
+    const svgWatermarkBase = `
     <svg width="${width}" height="${height}">
       <text
         dominant-baseline="middle"
@@ -104,7 +120,7 @@ export async function applyAiShielding(
     </svg>
   `;
 
-  const watermarkOpacity = 0.03;
+  const watermarkOpacity = 0.05;
   
   // Create two layers for an embossed effect, more detectable by AI
   const watermarkWhite = Buffer.from(
@@ -125,7 +141,7 @@ export async function applyAiShielding(
 
 
   // --- Composite the watermark over the perturbed image ---
-  return perturbedImage
+  return image
     .composite([
         { input: watermarkBlack, tile: false, blend: 'over' },
         { input: watermarkWhite, tile: false, blend: 'over' }
