@@ -75,15 +75,15 @@ export function FileUploader({ onFileChange, acceptedMimeTypes, maxSizeMb, descr
       onDrop={handleDrop}
       onClick={() => document.getElementById(`file-upload-${descriptionText}`)?.click()}
       className={cn(
-        "flex flex-col items-center justify-center w-full h-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+        "flex flex-col items-center justify-center w-full h-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-300",
         "border-border/50 hover:border-primary hover:bg-primary/10",
-        isDragging ? "border-primary bg-primary/10" : ""
+        isDragging ? "border-primary bg-primary/10 shadow-inner shadow-primary/20 scale-105" : ""
       )}
       role="button"
       aria-label="File uploader"
     >
       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center pointer-events-none">
-        <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
+        <UploadCloud className={cn("w-10 h-10 mb-4 text-muted-foreground transition-colors", isDragging && "text-primary")} />
         <p className="mb-2 text-lg font-semibold text-foreground">
           <span className="text-primary">Click to upload</span> or drag and drop
         </p>

@@ -4,18 +4,20 @@ import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
-  title: 'FaceGuard: Protect Your Digital Identity',
-  description: 'FaceGuard provides state-of-the-art protection for your images and videos. Apply an AI-resistant shield and get a cryptographic hash to prevent unauthorized use.',
+  title: 'FaceGuard: AI-Resistant Image & Video Protection',
+  description: 'Protect your digital identity. FaceGuard applies an AI-resistant shield to your images and provides a cryptographic hash for videos to prevent unauthorized use, tracking, and deepfakes. Secure your photos with our multi-layered defense.',
+  keywords: ['image protection', 'video protection', 'AI shield', 'anti-AI', 'facial recognition blocking', 'digital identity', 'privacy', 'security', 'cryptographic hash', 'deepfake prevention'],
   openGraph: {
-    title: 'FaceGuard: Protect Your Digital Identity',
-    description: 'Shield your photos and videos from AI misuse.',
-    url: 'https://faceguard-woad.vercel.app/',
+    title: 'FaceGuard: AI-Resistant Image & Video Protection',
+    description: 'Shield your photos and videos from AI misuse with our state-of-the-art protection.',
+    url: 'https://faceguard-woad.vercel.app/', // Replace with your actual domain
     siteName: 'FaceGuard',
     images: [
       {
-        url: 'https://faceguard-woad.vercel.app/og-image.png',
+        url: 'https://faceguard-woad.vercel.app/og-image.png', // Replace with your actual OG image URL
         width: 1200,
         height: 630,
+        alt: 'FaceGuard logo and tagline',
       },
     ],
     locale: 'en_US',
@@ -23,10 +25,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FaceGuard: Protect Your Digital Identity',
-    description: 'Shield your photos and videos from AI misuse.',
-    images: ['https://faceguard-woad.vercel.app/og-image.png'],
+    title: 'FaceGuard: AI-Resistant Image & Video Protection',
+    description: 'Shield your photos and videos from AI misuse with our state-of-the-art protection.',
+    images: ['https://faceguard-woad.vercel.app/og-image.png'], // Replace with your actual Twitter image URL
   },
+  icons: {
+    icon: '/favicon.ico', // Ensure you have a favicon.ico in your /public folder
+    apple: '/apple-touch-icon.png', // Ensure you have this in /public
+  },
+  manifest: '/site.webmanifest', // Ensure you have this in /public
 };
 
 export default function RootLayout({
@@ -50,6 +57,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <div className="background-gradient" />
+        <div className="background-grid" />
         {children}
         <Toaster />
         <Analytics />

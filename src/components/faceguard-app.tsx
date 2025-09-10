@@ -7,7 +7,7 @@ import { FileUploader } from "@/components/file-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, Cpu, Sparkles } from "lucide-react";
+import { Copy, Download, ShieldCheck, Share2, RefreshCw, Video, CheckCircle, ShieldAlert, Fingerprint, TrendingUp, Sparkles, Twitter, Facebook, Linkedin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -20,12 +20,17 @@ const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const VIDEO_MAX_SIZE_MB = 120;
 const VIDEO_ACCEPTED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
 
-const processingSteps = [
+const processingStepsImage = [
   "Enhancing image quality...",
   "Applying imperceptible AI shield...",
   "Embedding invisible watermark...",
   "Signing cryptographic receipt...",
 ];
+
+const processingStepsVideo = [
+  "Analyzing video file...",
+  "Calculating unique cryptographic hash...",
+]
 
 export function FaceGuardApp() {
   const [file, setFile] = useState<File | null>(null);
@@ -58,9 +63,10 @@ export function FaceGuardApp() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (appState === 'processing' && protectionType === 'image') {
+    if (appState === 'processing') {
+      const steps = protectionType === 'image' ? processingStepsImage : processingStepsVideo;
       interval = setInterval(() => {
-        setCurrentStep(prev => (prev < processingSteps.length - 1 ? prev + 1 : prev));
+        setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
       }, 1500); 
     } else {
         setCurrentStep(0);
@@ -184,62 +190,23 @@ export function FaceGuardApp() {
     }
   };
 
+  const openShareDialog = (platform: 'twitter' | 'facebook' | 'linkedin') => {
+    const url = "https://faceguard-woad.vercel.app"; // Replace with your actual URL
+    const text = "I just protected my digital identity with FaceGuard! Their multi-layered defense shields images and videos from AI misuse. #Privacy #Security #FaceGuard";
+    let shareUrl = "";
 
-  const handleShare = async () => {
-    if (!processedImageUri || !file) return;
-
-    try {
-      const response = await fetch(processedImageUri);
-      const blob = await response.blob();
-      
-      const sharedFile = new File([blob], `protected_${fileName}`, { type: blob.type });
-      
-      const shareData = {
-        files: [sharedFile],
-        title: 'My Protected Image',
-        text: 'This image was protected by FaceGuard. Protect your digital identity: https://faceguard-woad.vercel.app/',
-        url: 'https://faceguard-woad.vercel.app/'
-      };
-
-      if (navigator.canShare && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-        toast({
-          title: "Image Shared!",
-        });
-      } else if (navigator.canShare && navigator.canShare({ files: [sharedFile] })) {
-        await navigator.share({
-            files: [sharedFile],
-            title: 'My Protected Image',
-            text: `This image was protected by FaceGuard. Protect your digital identity: https://faceguard-woad.vercel.app/`
-        });
-      }
-      else {
-        toast({
-          variant: "destructive",
-          title: "Sharing Not Supported",
-          description: "Your browser does not support sharing files directly. Please download the image to share it.",
-        });
-      }
-    } catch (err) {
-      console.error("Share failed:", err);
-      if ((err as Error).name !== 'AbortError') {
-        toast({
-          variant: "destructive",
-          title: "Share Failed",
-          description: "Could not share the image.",
-        });
-      }
+    switch(platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        break;
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent("FaceGuard: Protect Your Digital Identity")}&summary=${encodeURIComponent(text)}`;
+        break;
     }
-  };
-  
-  const copyToClipboard = () => {
-    if (fileHash) {
-      navigator.clipboard.writeText(fileHash);
-      toast({
-        title: "Copied to clipboard!",
-        description: "The SHA-256 hash has been copied.",
-      });
-    }
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
   };
 
   const renderIdleState = () => {
@@ -287,7 +254,7 @@ export function FaceGuardApp() {
              <div className="flex gap-4 pt-4">
               <Button variant="outline" onClick={resetState}>Clear</Button>
               <Button onClick={handleProcessVideo} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Fingerprint />
+                <Fingerprint className="mr-2"/>
                 Register Video Fingerprint
               </Button>
             </div>
@@ -298,18 +265,7 @@ export function FaceGuardApp() {
   };
 
   const renderProcessingState = () => {
-    if (protectionType === 'video') {
-       return (
-        <div className="flex flex-col items-center gap-4 text-center p-8">
-          <div className="relative w-24 h-24">
-            <Fingerprint className="w-24 h-24 text-primary/30" />
-            <Fingerprint className="w-24 h-24 text-primary absolute top-0 left-0 animate-pulse-shield" />
-          </div>
-          <p className="text-lg font-medium mt-4">Registering your video...</p>
-          <p className="text-sm text-muted-foreground">Calculating unique cryptographic hash.</p>
-        </div>
-       )
-    }
+    const steps = protectionType === 'image' ? processingStepsImage : processingStepsVideo;
 
     return (
       <div className="flex flex-col items-center gap-4 text-center p-8 w-full max-w-md">
@@ -319,7 +275,7 @@ export function FaceGuardApp() {
         </div>
         <p className="text-lg font-medium mt-4">Building Your Fortress...</p>
         <div className="mt-4 w-full text-left">
-            {processingSteps.map((step, index) => (
+            {steps.map((step, index) => (
                 <div key={step} className={`flex items-center gap-3 transition-opacity duration-500 ${index <= currentStep ? 'opacity-100' : 'opacity-40'}`}>
                     <div className="flex items-center justify-center w-6 h-6">
                         {index < currentStep ? (
@@ -340,104 +296,75 @@ export function FaceGuardApp() {
     );
   }
 
-
   const renderSuccessState = () => {
-    if (protectionType === 'image' && processedImageUri && fileHash) {
-      return (
-        <div className="flex flex-col items-center gap-6 text-center">
-          <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
-          <h2 className="text-2xl font-bold">Gold Standard Protection Applied!</h2>
-          <div className="flex flex-wrap justify-center gap-4">
-            <a href={processedImageUri} download={`protected_${fileName}.jpg`}>
-              <Button>
-                <Download />
-                Download Enhanced Image
-              </Button>
-            </a>
-            <Button onClick={handleShare} variant="secondary">
-              <Share2 />
-              Share
-            </Button>
-            <Button variant="outline" onClick={resetState}>
-              <RefreshCw />
-              Protect Another
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4">
-            {protectionScore && (
-              <Card className="w-full bg-background/50 border-white/10 md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <TrendingUp className="w-5 h-5" />
-                    Protection Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-4">
-                    <Progress value={protectionScore} className="h-3" />
-                    <span className="font-bold text-lg text-primary">{protectionScore}</span>
-                  </div>
-                   <CardDescription className="text-xs mt-2">
-                    A measure of cryptographic and structural changes applied to your image.
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+    const isImage = protectionType === 'image' && processedImageUri && fileHash;
+    const isVideo = protectionType === 'video' && processedVideoUri && fileHash;
 
-          <Card className="w-full bg-background/50 mt-2 border-white/10">
-            <CardHeader>
-              <CardTitle className="text-lg">Proof of Protection</CardTitle>
-              <CardDescription>SHA-256 hash of your final protected image.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                <code className="font-code text-sm break-all flex-1 text-left">{fileHash}</code>
-                <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-    if (protectionType === 'video' && processedVideoUri && fileHash) {
-      return (
-        <div className="flex flex-col items-center gap-6 text-center">
-          <ShieldCheck className="w-16 h-16 text-success animate-pulse" />
-          <h2 className="text-2xl font-bold">Your Video is Registered!</h2>
-          <div className="flex flex-wrap justify-center gap-4">
-             <a href={processedVideoUri} download={`${fileName}.mp4`}>
-                <Button>
-                  <Download />
-                  Download Original
-                </Button>
-              </a>
-            <Button variant="outline" onClick={resetState}>
-              <RefreshCw />
-              Register Another
+    if (!isImage && !isVideo) return null;
+
+    return (
+      <div className="flex flex-col items-center gap-6 text-center w-full">
+        <ShieldCheck className="w-16 h-16 text-success animate-pulse-shield" style={{ animationIterationCount: 1, animationDuration: '1.5s' }} />
+        <h2 className="text-2xl font-bold">{isImage ? 'Gold Standard Protection Applied!' : 'Your Video is Registered!'}</h2>
+        
+        <div className="flex flex-wrap justify-center gap-4">
+          <a href={isImage ? processedImageUri : processedVideoUri} download={`protected_${fileName}.${isImage ? 'jpg' : 'mp4'}`}>
+            <Button>
+              <Download />
+              Download {isImage ? 'Enhanced Image' : 'Original Video'}
             </Button>
-          </div>
-           <Card className="w-full bg-background/50 mt-4 border-white/10">
+          </a>
+          <Button variant="outline" onClick={resetState}>
+            <RefreshCw />
+            Protect Another
+          </Button>
+        </div>
+
+        {protectionScore && (
+          <Card className="w-full bg-background/50 border-white/10">
             <CardHeader>
-              <CardTitle className="text-lg">Proof of Authenticity</CardTitle>
-              <CardDescription>SHA-256 hash of your original video.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="w-5 h-5" />
+                Protection Score
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                <code className="font-code text-sm break-all flex-1 text-left">{fileHash}</code>
-                <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
-                  <Copy className="h-4 w-4" />
-                </Button>
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-4">
+                <Progress value={protectionScore} className="h-3" />
+                <span className="font-bold text-lg text-primary">{protectionScore}</span>
               </div>
+              <CardDescription className="text-xs mt-2">
+                A measure of cryptographic and structural changes applied to your image.
+              </CardDescription>
             </CardContent>
           </Card>
+        )}
+
+        <Card className="w-full bg-background/50 mt-2 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-lg">Proof of {isImage ? 'Protection' : 'Authenticity'}</CardTitle>
+            <CardDescription>SHA-256 hash of your final protected file.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+              <code className="font-code text-sm break-all flex-1 text-left">{fileHash}</code>
+              <Button variant="ghost" size="icon" onClick={copyToClipboard} aria-label="Copy hash">
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="w-full text-center mt-4">
+          <p className="text-sm font-medium mb-3">Share the mission!</p>
+          <div className="flex justify-center gap-3">
+             <Button variant="outline" size="icon" onClick={() => openShareDialog('twitter')}><Twitter className="h-4 w-4 text-[#1DA1F2]"/></Button>
+             <Button variant="outline" size="icon" onClick={() => openShareDialog('facebook')}><Facebook className="h-4 w-4 text-[#1877F2]"/></Button>
+             <Button variant="outline" size="icon" onClick={() => openShareDialog('linkedin')}><Linkedin className="h-4 w-4 text-[#0A66C2]"/></Button>
+          </div>
         </div>
-      )
-    }
-    return null;
+      </div>
+    )
   }
 
   const renderErrorState = () => (
@@ -465,7 +392,6 @@ export function FaceGuardApp() {
     }
   }
 
-
   return (
     <Card className="w-full max-w-2xl mt-8 shadow-2xl bg-card/80 backdrop-blur-sm border-white/10 min-h-[400px]">
       <CardContent className="p-0 flex flex-col">
@@ -474,12 +400,9 @@ export function FaceGuardApp() {
             <TabsTrigger value="image">Image Protection</TabsTrigger>
             <TabsTrigger value="video">Video Registration</TabsTrigger>
           </TabsList>
-          <TabsContent value="image" className="p-6 flex-grow flex items-center justify-center m-0">
+          <div className="p-6 flex-grow flex items-center justify-center m-0">
              {renderContent()}
-          </TabsContent>
-          <TabsContent value="video" className="p-6 flex-grow flex items-center justify-center m-0">
-             {renderContent()}
-          </TabsContent>
+          </div>
         </Tabs>
       </CardContent>
     </Card>

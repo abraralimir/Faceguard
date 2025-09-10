@@ -82,8 +82,15 @@
 }
 
 @layer utilities {
-  .background-gradient {
+  .background-grid {
     @apply fixed inset-0 -z-10 h-full w-full;
+    background-image: linear-gradient(to right, hsl(var(--border) / 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.2) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 70%, transparent 100%);
+  }
+  .background-gradient {
+    @apply fixed inset-0 -z-20 h-full w-full;
     background: linear-gradient(-45deg, hsl(224, 71%, 4%), hsl(260, 50%, 8%), hsl(330, 40%, 12%), hsl(224, 71%, 4%));
     background-size: 400% 400%;
     animation: gradient-animation 25s ease infinite;
@@ -99,10 +106,12 @@
     0%, 100% {
       transform: scale(1);
       opacity: 1;
+      filter: drop-shadow(0 0 0.5rem hsl(var(--primary) / 0.7));
     }
     50% {
       transform: scale(1.1);
       opacity: 0.8;
+       filter: drop-shadow(0 0 1.5rem hsl(var(--primary) / 0.9));
     }
   }
 

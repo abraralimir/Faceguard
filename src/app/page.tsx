@@ -1,5 +1,5 @@
 import { FaceGuardApp } from '@/components/faceguard-app';
-import { ShieldAlert, FileSignature, FileLock2, Lock, Fingerprint } from 'lucide-react';
+import { ShieldAlert, FileSignature, Fingerprint, Lock, ArrowRight, TrendingUp } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -10,8 +10,8 @@ export default function Home() {
         </h1>
         <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
           Turn your images and videos into an invisible fortress. FaceGuard enhances
-          your photos, applies a state-of-the-art defense to make them 
-          unintelligible to AI, and registers your videos with an unforgeable cryptographic hash.
+          your media, applies a state-of-the-art defense to make it
+          unintelligible to AI, and registers it with an unforgeable cryptographic hash.
         </p>
       </div>
 
@@ -19,38 +19,34 @@ export default function Home() {
 
       <div className="mt-20 w-full max-w-5xl text-center">
         <h2 className="text-3xl font-headline font-bold text-foreground mb-10">
-          A New Standard in Digital Protection
+          The New Standard in Digital Protection
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center p-6 bg-card/50 rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10">
+            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
+              <TrendingUp className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Quality Enhancement</h3>
+            <p className="text-sm text-muted-foreground">
+              Your images are automatically upscaled and sharpened, resulting in a higher-quality photo before any protection is even applied.
+            </p>
+          </div>
+          <div className="flex flex-col items-center p-6 bg-card/50 rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <ShieldAlert className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Multi-Layered AI Shield</h3>
+            <h3 className="text-lg font-semibold mb-2">Imperceptible AI Shield</h3>
             <p className="text-sm text-muted-foreground">
-              For images, we apply invisible noise, color shifts, and micro-distortions. This "AI landmine"
-              is imperceptible to you but corrupts data for models trying to
-              learn from or alter your face.
+              A multi-layered defense of noise, color shifts, and micro-distortions is applied, corrupting data for AI models while remaining invisible to the human eye.
             </p>
           </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center p-6 bg-card/50 rounded-lg border border-border/50 transition-all hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10">
             <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <FileSignature className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Cryptographic Receipt</h3>
+            <h3 className="text-lg font-semibold mb-2">Cryptographic Proof</h3>
             <p className="text-sm text-muted-foreground">
-              You receive a unique, unforgeable digital receipt for your image, signed with
-              our server's private key, providing undeniable proof of its
-              protected state.
-            </p>
-          </div>
-           <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border border-primary/20 mb-4">
-              <Fingerprint className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Video Fingerprinting</h3>
-            <p className="text-sm text-muted-foreground">
-               Your video is not altered. We compute a unique SHA-256 hash (a digital fingerprint) to register its authenticity, giving you proof of the original file.
+               Receive an unforgeable digital receipt (SHA-256 hash) for every file, providing undeniable proof of its protected state and authenticity.
             </p>
           </div>
         </div>
@@ -68,7 +64,7 @@ export default function Home() {
       </div>
 
        <footer className="w-full max-w-5xl text-center mt-20 text-muted-foreground text-sm">
-          <p>&copy; 2025 FaceGuard, a product of SASHA. All Rights Reserved.</p>
+          <p>&copy; {new Date().getFullYear()} FaceGuard. All Rights Reserved.</p>
        </footer>
     </main>
   );
